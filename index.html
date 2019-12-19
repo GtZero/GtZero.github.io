@@ -551,6 +551,362 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/19/《设计模式之禅》 结构类模式/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="GuoT">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/cat.png">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="RINGLING">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                
+                <a href="/2019/06/19/《设计模式之禅》 结构类模式/" class="post-title-link" itemprop="url">《设计模式之禅》 结构类模式</a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+
+              
+                
+              
+
+              <time title="Post created: 2019-06-19 00:00:00" itemprop="dateCreated datePublished" datetime="2019-06-19T00:00:00+08:00">2019-06-19</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Updated at: 2019-12-19 19:28:34" itemprop="dateModified" datetime="2019-12-19T19:28:34+08:00">2019-12-19</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">in</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/学习笔记/" itemprop="url" rel="index"><span itemprop="name">学习笔记</span></a></span>
+
+                
+                
+                  . 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/学习笔记/《设计模式之禅》/" itemprop="url" rel="index"><span itemprop="name">《设计模式之禅》</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+			
+		  
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h1 id="设计模式之禅"><a href="#设计模式之禅" class="headerlink" title="设计模式之禅"></a>设计模式之禅</h1><p>[TOC]</p>
+<h2 id="第二部分-23种设计模式-结构类模式"><a href="#第二部分-23种设计模式-结构类模式" class="headerlink" title="第二部分 23种设计模式- 结构类模式"></a>第二部分 23种设计模式- 结构类模式</h2><blockquote>
+<p>结构类模式: 描述类和对象之间如何进行有效的组织，以形成良好的软件体系结构</p>
+</blockquote>
+<h3 id="一-适配器模式"><a href="#一-适配器模式" class="headerlink" title="一.适配器模式"></a>一.适配器模式</h3><p><strong>1.定义</strong><br>将一个类的接口变换成客户端所期待的另一种接口，从而使原本因接口不匹配而无法再一起工作的两个类能够在一起工作</p>
+<blockquote>
+<p>适配器模式又叫变压器模式</p>
+</blockquote>
+<p><strong>2.类图</strong></p>
+<ol>
+<li><p>类适配器<br><img src="\cttImages\image-20191219192724500.png" alt="image-20191219192724500"></p>
+</li>
+<li><p>对象适配器(使用的场景相对较多)<br><img src="\cttImages\image-20191219192815356.png" alt="image-20191219192815356"></p>
+</li>
+</ol>
+<p><strong>3.角色</strong></p>
+<ol>
+<li><p>Target目标角色 — <strong>接口</strong><br>该角色定义把其他类转换为何种接口，也就是我们的期望接口</p>
+</li>
+<li><p>Adaptee源角色<br>它是已经存在的，运行良好的类或对象</p>
+</li>
+<li>Adapter适配器对象<br>适配器模式的核心角色，其他两个角色都是已经存在的角色。适配器角色需要新建立，用于把源角色转换成目标角色，通过继承或类关联的方式</li>
+</ol>
+<p><strong>4.优点</strong></p>
+<ol>
+<li>增加类的透明性</li>
+<li>提高类的复用度</li>
+<li>灵活性非常好</li>
+</ol>
+<p><strong>5.注意事项</strong><br>适配器模式在详细设计阶段不要考虑它，它不是为了解决还处在开发阶段的问题</p>
+<h3 id="二-代理模式-委托模式"><a href="#二-代理模式-委托模式" class="headerlink" title="二.代理模式(委托模式)"></a>二.代理模式(委托模式)</h3><p><strong>1.定义</strong><br>为其他对象提供一种代理以控制对这个对象的访问<br><strong>2.类图</strong><br><img src="en-resource://database/1249:1" alt="1a539271da5e3bb95f00db250db4b864.png"><br><strong>3.角色</strong></p>
+<ol>
+<li><p>Subject 抽象主题角色<br>抽象主题类可以是抽象类也可以是接口。(包含需要被代理的方法)</p>
+</li>
+<li><p>RealSubject 具体主题角色<br>委托角色，被代理角色，业务逻辑的具体执行者</p>
+</li>
+<li><p>Proxy 代理主题角色<br>代理类。它负责对真实角色的应用，在真实角色处理完毕前后做预处理和善后处理工作</p>
+</li>
+</ol>
+<p><strong>4.扩展</strong></p>
+<ul>
+<li><ul>
+<li>1.普通代理<br>我们需要知道代理类的存在。需要自己new</li>
+</ul>
+</li>
+<li><ul>
+<li>2.强制代理<br>调用者直接调用真实角色，而不用关心代理是否存在，代理从真实角色中产生</li>
+</ul>
+</li>
+<li><ul>
+<li>3.虚拟代理<br>在需要的时候才初始化主题对象，可以避免被代理对象较多而引起的初始化缓慢问题。缺点是需要在每个方法中判断主题对象是否被创建</li>
+</ul>
+</li>
+<li><ul>
+<li>4.动态代理 — 类图<br><img src="en-resource://database/1250:1" alt="2cb766d2e8289b9021127da32a76c70f.png"></li>
+</ul>
+</li>
+</ul>
+<h3 id="三-装饰模式"><a href="#三-装饰模式" class="headerlink" title="三.装饰模式"></a>三.装饰模式</h3><p><strong>1.定义</strong><br>动态地给一个对象添加一些额外的职责，就增加功能</p>
+<p><strong>2.类图</strong><br><img src="en-resource://database/1257:1" alt="6161dbdc4c55d2b867ab1f17c325eaf8.png"></p>
+<p><strong>3.角色</strong></p>
+<ol>
+<li><p>Component 抽象构件<br>一个接口或抽象类，原始对象。放需要加强的方法</p>
+</li>
+<li><p>ConcreteComponent具体构件<br>原始的接口或抽象类的实现</p>
+</li>
+<li><p>Decorator 装饰角色<br>聚合原始构件，实现接口或抽象方法，加以功能</p>
+</li>
+</ol>
+<p><strong>4.应用</strong><br>优点: 装饰类和被装饰类可以独立发展，不会互相耦合。动态扩展一个实现类的功能<br>缺点: 多层装饰会比较复杂</p>
+<blockquote>
+<p>装饰器模式、代理模式比较</p>
+<ul>
+<li>装饰者模式：可以让使用者直观的看到增强了哪些功能。装饰者能够在运行时递归地被构造</li>
+<li>代理模式：限制了使用者，只去调用代理，至于代理里面增加了什么功能，使用者是不知道，隐藏了一个对象的具体信息。代理和真实对象之间的的关系通常在编译时就已经确定</li>
+</ul>
+</blockquote>
+<h3 id="四-组合模式"><a href="#四-组合模式" class="headerlink" title="四.组合模式"></a>四.组合模式</h3><p><strong>1.定义</strong><br>将对象组合成树形结构表示”部分-整体”的层次结构，使得用户对单个对象和组合对象的使用具有一致性<br><strong>2.类图</strong><br><img src="en-resource://database/1254:1" alt="20e6d4a96f45e9cdc5a202583b0a2fae.png"><br><strong>3.角色</strong></p>
+<ol>
+<li><p>Component 抽象构件角色<br>定义组合对象的共有方法和属性，可以定义一些默认的行为或属性<br><img src="en-resource://database/1256:1" alt="4884b2468ccb20be7c1ef8d7d8d009f7.png"></p>
+</li>
+<li><p>Leaf 叶子构件<br>叶子对象，其下再没有其他分支，即遍历的最小单元<br><img src="en-resource://database/1258:1" alt="66cd6d7a6451a7f195644a3cd1a6ace8.png"></p>
+</li>
+<li><p>Composite 树枝构件<br>树枝对象，组合树枝节点和叶子节点形成一个树形结构<br><img src="en-resource://database/1260:1" alt="a610aa4990783ada388eddcf8080b5c5.png"></p>
+</li>
+</ol>
+<p><strong>遍历树结构</strong>，参考代码<br><img src="en-resource://database/1252:1" alt="1673fa27c55767963cf2ec6848695253.png"></p>
+<p>组合模式是对依赖倒置原则的破坏。</p>
+<p><strong>4.应用</strong><br>优点: 高层模块调用简单、节点自由增加<br>缺点: 直接使用了实现类，在面向接口编程上是很不恰当的，与依赖倒置原则冲突</p>
+<p>使用场景: 维护和展示部分-整体关系、从一个整体中能够独立出部分模块或功能的场景</p>
+<p><strong>5.扩展</strong><br>在实际项目中，树的组装信息是存储在关系型数据库中。我们从数据库读取出来，展示</p>
+<ul>
+<li><strong>5.1.安全模式</strong><br><code>类图</code><br><img src="en-resource://database/1259:1" alt="8be68a57ecccab8b195f2e0010b5642c.png"></li>
+</ul>
+<p>Component表示结点，区分叶子对象和树枝对象。不提供客户端不可能调用到的方法。但不够透明，因为叶子构件和容器构件具有不同的方法，必须有区别地对待叶子构件和容器构件。违反依赖倒置原则</p>
+<ul>
+<li><strong>5.2.透明模式</strong><br><code>类图</code><br><img src="en-resource://database/1253:1" alt="20cf002a192b8d1c036c68ba2f93ce99.png"></li>
+</ul>
+<p>在该模式中不区分叶子、树枝对象。确保所有的构件类都有相同的接口，客户端可以相同地对待所有的对象。符合依赖倒置原则。但不够安全，因为叶子对象和容器对象在本质上是有区别的。提供add()、remove()以及getChild()等方法是没有意义的，这在编译阶段不会出错，但在运行阶段如果调用这些方法可能会出错（如果没有提供相应的错误处理代码）</p>
+<h3 id="五-门面模式-外观模式"><a href="#五-门面模式-外观模式" class="headerlink" title="五.门面模式(外观模式)"></a>五.门面模式(外观模式)</h3><p><strong>1. 定义</strong><br>要求一个子系统的外部与其内部的通信必须通过一个统一的对象进行<br><strong>2. 类图</strong><br><img src="en-resource://database/1261:1" alt="b4f4f5c12a3ffee0803f187c6d59a5c6.png"><br><img src="en-resource://database/1251:1" alt="0a3826ab4a1bee97ab678016c5537ce2.png"></p>
+<p><strong>3. 角色</strong></p>
+<ol>
+<li>Facade 门面角色<br>客户端呢可以调用这个角色的方法，该角色知道子系统的所有功能与职责</li>
+<li>Subsystem 子系统角色</li>
+</ol>
+<p><strong>4. 应用</strong><br>优点: 减少系统的相互依赖、提高灵活性安全性<br>缺点: 不符合开闭原则，发现错误后需要去修改门面角色的代码</p>
+<blockquote>
+<ul>
+<li>一个子系统可以有多个门面</li>
+<li>门面不参与子系统内的业务逻辑</li>
+</ul>
+</blockquote>
+<h3 id="六-享元模式"><a href="#六-享元模式" class="headerlink" title="六.享元模式"></a>六.享元模式</h3><p><strong>1. 定义</strong><br>使用共享对象有效地支持大量的细粒度的对象<br><strong>2. 类图</strong><br><img src="en-resource://database/1255:1" alt="3c0aab3176577336f48f933e8b5b9c4a.png"></p>
+<p><strong>3. 角色</strong></p>
+<blockquote>
+<p>外部状态: 该状态随环境改变而改变，是不可以共享的状态。对象得以依赖的一个标记<br>内部状态: 该状态不随环境改变而改变，存储在享元对象内部，对象可共享出来的信息</p>
+</blockquote>
+<ol>
+<li><p>Flyweight 抽象享元角色<br>同时定义出对象的外部状态和内部状态<br><img src="en-resource://database/1265:1" alt="ec9ec76fc76ef4ed96c408fd3c08cc36.png"><br><img src="en-resource://database/1264:1" alt="cb92454576b0053ebfe98e2b719be2bf.png"></p>
+</li>
+<li><p>ConcreteFlyweight 具体享元角色<br>具体的一个产品类，实现抽象角色定义。确定好内部状态(共享)，外部状态可供改变</p>
+<blockquote>
+<p>不能出现一个操作改变内部状态，同时改变外部状态</p>
+</blockquote>
+</li>
+</ol>
+<p><img src="en-resource://database/1263:1" alt="79fcd8a021865d799bc074cd4f928034.png"></p>
+<ol start="3">
+<li>unsharedConcreteFlyweight 不可共享的享元角色<br>不存在外部状态、有安全要求不能使用共享技术的对象。该对象一般不会出现在享元工厂中</li>
+</ol>
+<blockquote>
+<p>使用抽象享元角色的属性，但不是共享对象</p>
+</blockquote>
+<ol start="4">
+<li>FlyweightFactory 享元工厂<br>构造一个池容器，提供从池中获得对象的方法<br><img src="en-resource://database/1262:1" alt="19180035b0ea370f97dde3e3868b328e.png"></li>
+</ol>
+<blockquote>
+<p>在程序开发中，确认只需要一次赋值的属性则设置为final类型，避免无意修改导致逻辑混乱</p>
+</blockquote>
+<p><strong>4. 应用</strong><br><code>优点</code><br>大大减少应用程序创建的对象，降低程序内存的占用，增强程序的性能</p>
+<p><code>缺点</code><br>提高了系统复杂性，需要分离出外部状态和内部状态，且外部状态具有固化性，不随内部状态改变而改变，否则会导致系统的逻辑混乱</p>
+<p><code>使用场景</code></p>
+<ul>
+<li>系统中存在大量的相似对象</li>
+<li>需要缓冲池的场景</li>
+</ul>
+<p><strong>5. 扩展</strong></p>
+<ol>
+<li>线程安全问题</li>
+<li></li>
+</ol>
+<h3 id="七-桥梁模式"><a href="#七-桥梁模式" class="headerlink" title="七.桥梁模式"></a>七.桥梁模式</h3><p><strong>1.定义</strong><br>将抽象和实现解耦，使得两者可以独立地变化</p>
+<p><strong>2.类图</strong><br><img src="en-resource://database/1266:1" alt="ae5426ac75d8d83981d346a52d6b3f2f.png"></p>
+<p><strong>3.角色</strong></p>
+<ol>
+<li>Abstraction 抽象化角色<br>主要职责是定义出该角色的行为，同时保存一个对实现化角色的引用，该角色一般是抽象类</li>
+<li>Implementor 实现化角色<br>接口或者抽象类，定义角色必须的行为和属性</li>
+<li>RefinedAbstraction 修正抽象化角色<br>引用实现化角色对抽象化角色进行修正</li>
+<li>ConcreteImplementor 具体实现化角色<br>实现接口或抽象类定义的方法和属性</li>
+</ol>
+<blockquote>
+<p>类似于聚合、合成的一种模式</p>
+</blockquote>
+<p><strong>4.应用</strong><br><code>优点</code></p>
+<ul>
+<li>抽象和实现分离</li>
+<li>优秀的扩充能力</li>
+<li>实现细节对客户透明</li>
+</ul>
+<p><code>使用场景</code></p>
+<ul>
+<li>不希望或不使用继承的场景</li>
+<li>接口或抽象类不稳定的场景</li>
+<li>重用性要求较高的场景</li>
+</ul>
+
+          
+        
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/14/《设计模式之禅》 行为类模式/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -2094,7 +2450,7 @@
                 
                   <a href="/archives">
                 
-                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-count">10</span>
                     <span class="site-state-item-name">Artikel</span>
                   </a>
                 </div>
@@ -2226,7 +2582,7 @@
 
 <div class="theme-info">
   <div class="powered-by"></div>
-  <span class="post-count">博客全站共13.8k字</span>
+  <span class="post-count">博客全站共16k字</span>
 </div>
         
 
