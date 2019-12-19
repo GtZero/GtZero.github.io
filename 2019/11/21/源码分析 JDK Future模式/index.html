@@ -97,18 +97,18 @@
 
 
 
-  <meta name="description" content="JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线程，call">
+  <meta name="description" content="源码分析: JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线">
 <meta property="og:type" content="article">
-<meta property="og:title" content="JDK Future模式分析">
-<meta property="og:url" content="http://yoursite.com/2019/07/21/JDK Future模式/index.html">
+<meta property="og:title" content="源码分析 JDK Future模式分析">
+<meta property="og:url" content="http://yoursite.com/2019/11/21/源码分析 JDK Future模式/index.html">
 <meta property="og:site_name" content="RINGLING">
-<meta property="og:description" content="JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线程，call">
+<meta property="og:description" content="源码分析: JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="http://yoursite.com/cttImages/1573998581653.png">
-<meta property="og:updated_time" content="2019-11-17T13:57:34.074Z">
+<meta property="og:updated_time" content="2019-12-19T12:46:53.195Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="JDK Future模式分析">
-<meta name="twitter:description" content="JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线程，call">
+<meta name="twitter:title" content="源码分析 JDK Future模式分析">
+<meta name="twitter:description" content="源码分析: JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线">
 <meta name="twitter:image" content="http://yoursite.com/cttImages/1573998581653.png">
 
 
@@ -116,7 +116,7 @@
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2019/07/21/JDK Future模式/">
+  <link rel="canonical" href="http://yoursite.com/2019/11/21/源码分析 JDK Future模式/">
 
 
 
@@ -126,7 +126,7 @@
   };
 </script>
 
-  <title>JDK Future模式分析 | RINGLING</title>
+  <title>源码分析 JDK Future模式分析 | RINGLING</title>
   
 
 
@@ -377,7 +377,7 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/21/JDK Future模式/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/21/源码分析 JDK Future模式/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="GuoT">
@@ -394,7 +394,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">JDK Future模式分析
+          <h1 class="post-title" itemprop="name headline">源码分析 JDK Future模式分析
 
               
             
@@ -420,7 +420,7 @@
                 
               
 
-              <time title="Post created: 2019-07-21 17:32:44" itemprop="dateCreated datePublished" datetime="2019-07-21T17:32:44+08:00">2019-07-21</time>
+              <time title="Post created: 2019-11-21 17:32:44" itemprop="dateCreated datePublished" datetime="2019-11-21T17:32:44+08:00">2019-11-21</time>
             
 
             
@@ -437,7 +437,7 @@
                 
                   <span class="post-meta-item-text">Edited on</span>
                 
-                <time title="Updated at: 2019-11-17 21:57:34" itemprop="dateModified" datetime="2019-11-17T21:57:34+08:00">2019-11-17</time>
+                <time title="Updated at: 2019-12-19 20:46:53" itemprop="dateModified" datetime="2019-12-19T20:46:53+08:00">2019-12-19</time>
               
             
           </span>
@@ -476,7 +476,7 @@
       
 
       
-        <h1 id="JDK-Future模式分析"><a href="#JDK-Future模式分析" class="headerlink" title="JDK Future模式分析"></a><a href="https://blog.csdn.net/u010365819/article/details/80761332#commentBox" target="_blank" rel="noopener">JDK Future模式分析</a></h1><p>[TOC]</p>
+        <h1 id="源码分析-JDK-Future模式分析"><a href="#源码分析-JDK-Future模式分析" class="headerlink" title="源码分析: JDK Future模式分析"></a>源码分析: JDK Future模式分析</h1><p>[TOC]</p>
 <h2 id="一-基本概念"><a href="#一-基本概念" class="headerlink" title="一.基本概念"></a>一.基本概念</h2><p><strong>基本方法接口</strong></p>
 <ol>
 <li>Executor接口:<br>void execute(Runnable command)方法。开启一个线程执行任务，无返回值</li>
@@ -531,8 +531,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2019/06/19/《设计模式之禅》 结构类模式/" rel="next" title="《设计模式之禅》 结构类模式">
-                <i class="fa fa-chevron-left"></i> 《设计模式之禅》 结构类模式
+              <a href="/2019/07/23/JDK8 新特性/" rel="next" title="JDK8 新特性学习">
+                <i class="fa fa-chevron-left"></i> JDK8 新特性学习
               </a>
             
           </div>
@@ -611,7 +611,7 @@
                 
                   <a href="/archives">
                 
-                    <span class="site-state-item-count">10</span>
+                    <span class="site-state-item-count">12</span>
                     <span class="site-state-item-name">Artikel</span>
                   </a>
                 </div>
@@ -623,6 +623,8 @@
                 <div class="site-state-item site-state-categories">
                   <a href="/categories/index.html">
                     
+                    
+                      
                     
                       
                     
@@ -703,7 +705,7 @@
             
 
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#JDK-Future模式分析"><span class="nav-text">JDK Future模式分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#一-基本概念"><span class="nav-text">一.基本概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二-源码分析"><span class="nav-text">二.源码分析</span></a></li></ol></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#源码分析-JDK-Future模式分析"><span class="nav-text">源码分析: JDK Future模式分析</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#一-基本概念"><span class="nav-text">一.基本概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二-源码分析"><span class="nav-text">二.源码分析</span></a></li></ol></li></ol></div>
             
 
           </div>
@@ -760,7 +762,7 @@
 
 <div class="theme-info">
   <div class="powered-by"></div>
-  <span class="post-count">博客全站共16k字</span>
+  <span class="post-count">博客全站共19.8k字</span>
 </div>
         
 

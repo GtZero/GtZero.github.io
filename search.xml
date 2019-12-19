@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>JDK Future模式分析</title>
-    <url>/2019/07/21/JDK%20Future%E6%A8%A1%E5%BC%8F/</url>
-    <content><![CDATA[<h1 id="JDK-Future模式分析"><a href="#JDK-Future模式分析" class="headerlink" title="JDK Future模式分析"></a><a href="https://blog.csdn.net/u010365819/article/details/80761332#commentBox" target="_blank" rel="noopener">JDK Future模式分析</a></h1><p>[TOC]</p>
+    <title>源码分析 JDK Future模式分析</title>
+    <url>/2019/11/21/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%20JDK%20Future%E6%A8%A1%E5%BC%8F/</url>
+    <content><![CDATA[<h1 id="源码分析-JDK-Future模式分析"><a href="#源码分析-JDK-Future模式分析" class="headerlink" title="源码分析: JDK Future模式分析"></a>源码分析: JDK Future模式分析</h1><p>[TOC]</p>
 <h2 id="一-基本概念"><a href="#一-基本概念" class="headerlink" title="一.基本概念"></a>一.基本概念</h2><p><strong>基本方法接口</strong></p>
 <ol>
 <li>Executor接口:<br>void execute(Runnable command)方法。开启一个线程执行任务，无返回值</li>
@@ -31,21 +31,275 @@
 ]]></content>
   </entry>
   <entry>
+    <title>JDK8 新特性学习</title>
+    <url>/2019/07/23/JDK8%20%E6%96%B0%E7%89%B9%E6%80%A7/</url>
+    <content><![CDATA[<h1 id="附-JDK8-新特性"><a href="#附-JDK8-新特性" class="headerlink" title="附: JDK8 新特性"></a>附: JDK8 新特性</h1><p>[TOC]</p>
+<blockquote>
+<p>JDK1.8及之后，可以在接口中创建实例方法，default域！</p>
+</blockquote>
+<h2 id="一-Lambda表达式"><a href="#一-Lambda表达式" class="headerlink" title="一.Lambda表达式"></a>一.Lambda表达式</h2><h3 id="1-函数式接口"><a href="#1-函数式接口" class="headerlink" title="1. 函数式接口"></a>1. 函数式接口</h3><p>接口中只有一个抽象方法的接口。可以使用注解@FunctionalInterface 修饰来检查是否是函数式接口</p>
+<h3 id="2-功能"><a href="#2-功能" class="headerlink" title="2. 功能"></a>2. 功能</h3><p>可替代对函数式接口创建的匿名内部类，增加代码可读性</p>
+<blockquote>
+<ul>
+<li>jdk1.7及之前，匿名内部类中应用的局部变量，必须被final修饰(不可进行修改操作)。1.8及之后可省略，没加会默认添加</li>
+<li>Lambda表达式中同</li>
+</ul>
+</blockquote>
+<h3 id="3-基本语法"><a href="#3-基本语法" class="headerlink" title="3. 基本语法"></a>3. 基本语法</h3><ul>
+<li>操作符: -&gt;</li>
+<li>左侧: Lambda表达式的参数列表</li>
+<li>右侧(Lambda体): Lambda表达式中所需执行的功能</li>
+</ul>
+<h3 id="4-语法格式"><a href="#4-语法格式" class="headerlink" title="4. 语法格式"></a>4. 语法格式</h3><blockquote>
+<p>只有一条语句时，大括号可以省略。有返回值的接口，默认返回这一条语句的返回值</p>
+</blockquote>
+<ol>
+<li>接口无/多个参数、无返回值，语句多条<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">(无/参数个数) -&gt; &#123;语句; ...; 语句;&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Runnable runnable = () -&gt; &#123;</span><br><span class="line">            System.out.println(<span class="string">""</span>);</span><br><span class="line">            System.out.println(<span class="string">""</span>);</span><br><span class="line">        &#125;;</span><br></pre></td></tr></table></figure>
+<ol start="2">
+<li>接口无/多个参数、有返回值，语句多条<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">(无/参数个数) -&gt; &#123;语句; ...; <span class="keyword">return</span> 语句;&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Supplier&lt;String&gt; s = () -&gt; &#123;</span><br><span class="line">           System.out.println(<span class="string">""</span>);</span><br><span class="line">           System.out.println(<span class="string">""</span>);</span><br><span class="line">           <span class="keyword">return</span> <span class="string">""</span>;</span><br><span class="line">       &#125;;</span><br></pre></td></tr></table></figure>
+<h3 id="5-四大内置接口"><a href="#5-四大内置接口" class="headerlink" title="5. 四大内置接口"></a>5. 四大内置接口</h3><ol>
+<li>Consumer<t> : 消费型接口。<br><code>void accept(T t)</code></t></li>
+<li>Supplier<t> : 供给型接口<br><code>T get()</code></t></li>
+<li>Function&lt;T, R&gt; : 函数型接口<br><code>R apply(T t)</code></li>
+<li>Predicate<t> : 断言型接口<br><code>boolean test(T t)</code></t></li>
+</ol>
+<h2 id="二-方法引用"><a href="#二-方法引用" class="headerlink" title="二.方法引用"></a>二.方法引用</h2><h3 id="1-功能"><a href="#1-功能" class="headerlink" title="1.功能"></a>1.功能</h3><p>通过类名和方法名来定位一个静态方法或实例方法。用来简化替换lambda表达式的一种手段</p>
+<h3 id="2-注意项"><a href="#2-注意项" class="headerlink" title="2.注意项"></a>2.注意项</h3><ul>
+<li>Lambda体中调用方法的参数列表与返回类型，与函数式接口中抽象方法的函数列表和返回值一致(即Lambda体与接口方法一致)</li>
+</ul>
+<h3 id="3-语法格式"><a href="#3-语法格式" class="headerlink" title="3. 语法格式"></a>3. 语法格式</h3><h4 id="3-1-普通方法"><a href="#3-1-普通方法" class="headerlink" title="3.1.普通方法"></a>3.1.普通方法</h4><p><strong>1. 对象::实例方法名</strong></p>
+<p><strong>2. 类::静态方法名</strong></p>
+<p><strong>3. 类::实例方法名</strong><br>当要对参数的方法进行引用时使用。是用第一个参数的该方法<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line">BiPredicate&lt;String, String&gt; bp = (x, y) -&gt; x.equals(y);</span><br><span class="line">     BiPredicate&lt;String, String&gt; bp2 = String::equals;</span><br></pre></td></tr></table></figure></p>
+<h4 id="3-2-构造方法"><a href="#3-2-构造方法" class="headerlink" title="3.2.构造方法"></a>3.2.构造方法</h4><h5 id="1-对象构造"><a href="#1-对象构造" class="headerlink" title="1.对象构造"></a>1.对象构造</h5><p><strong>格式</strong><br>ClassName :: new</p>
+<p><strong>构造方法</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">User</span><span class="params">()</span> </span>&#123;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="function"><span class="keyword">public</span> <span class="title">User</span><span class="params">(String id)</span> </span>&#123;</span><br><span class="line">       <span class="keyword">this</span>.id = id;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="function"><span class="keyword">public</span> <span class="title">User</span><span class="params">(String id, String name)</span> </span>&#123;</span><br><span class="line">       <span class="keyword">this</span>.id = id;</span><br><span class="line">       <span class="keyword">this</span>.name = name;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure></p>
+<blockquote>
+<p>用带返回值的函数式接口，参数列表要一致！返回值为类名</p>
+</blockquote>
+<p><strong>无参构造</strong><br><code>Supplier&lt;User&gt; sup = User::new;</code></p>
+<p><strong>带一个参数</strong><br><code>Function&lt;String, User&gt; fun = User::new;</code></p>
+<p><strong>两个参数</strong><br><code>BiFunction&lt;String, String, User&gt; bif = User::new;</code></p>
+<h5 id="2-数组构造"><a href="#2-数组构造" class="headerlink" title="2.数组构造"></a>2.数组构造</h5><p><strong>格式</strong><br>Type[] :: new</p>
+<p><strong>示例</strong><br><code>Function&lt;Integer, String[]&gt; fun2 = String[]::new;</code></p>
+<blockquote>
+<p>数组构造需要指定大小，所以需要传入参数，使用Function接口</p>
+</blockquote>
+<h3 id="4-补充-19-12-14"><a href="#4-补充-19-12-14" class="headerlink" title="4. 补充: 19.12.14"></a>4. 补充: 19.12.14</h3><ul>
+<li>lambda简化匿名内部类的代码</li>
+<li>方法引用简化lambda表达式，只是实现了流式接口里的方法</li>
+<li>方法引用没有显示写出对应的参数及返回值。对应的流式接口的参数，要和方法引用的参数对上</li>
+<li><p>关于类调用实例方法，是表明我要调用该类实例的这个实例方法。具体的调用者，是参数的那个对象<img src="\cttImages\image-20191219205036488.png" alt="image-20191219205036488" style="zoom: 80%;"></p>
+</li>
+<li><p>在这里表明调用User类的prin实例方法</p>
+</li>
+<li>实际上是调用传进来的User对象的prin方法</li>
+</ul>
+<h2 id="三-Stream流操作"><a href="#三-Stream流操作" class="headerlink" title="三.Stream流操作"></a>三.Stream流操作</h2><h3 id="1-简介"><a href="#1-简介" class="headerlink" title="1.简介"></a>1.简介</h3><p>数据渠道，用于操作数据源(集合、数组等)所生成的元素序列</p>
+<h3 id="2-操作步骤"><a href="#2-操作步骤" class="headerlink" title="2.操作步骤"></a>2.操作步骤</h3><h4 id="2-1-创建流Stream"><a href="#2-1-创建流Stream" class="headerlink" title="2.1. 创建流Stream"></a>2.1. 创建流Stream</h4><ol>
+<li>通过Collection系列集合提供的stream() 或 parallelStream()</li>
+<li>通过Arrays中的静态方法stream() 获得数组流</li>
+<li>通过Stream类中的静态方法of()</li>
+<li>创建无限流。<br><code>Stream&lt;Integer&gt; stream = Stream.iterate(0, (x) -&gt; x + 2);</code></li>
+</ol>
+<h4 id="2-2-中间操作"><a href="#2-2-中间操作" class="headerlink" title="2.2.中间操作"></a>2.2.中间操作</h4><blockquote>
+<p>返回值是Stream</p>
+</blockquote>
+<p><strong>注意</strong><br>在进行终止操作时中间操作会一次性全部处理 — “惰性求值”</p>
+<p><strong>筛选</strong></p>
+<ul>
+<li>filter — 接收Lambda，从流中清除某些元素</li>
+<li>limit — 截断流，使元素不能超过给定数量</li>
+<li>skip(n) — 跳过流中的前n个元素</li>
+<li>distinct — 筛选，通过流所生成元素的hashCode方法、equals方法去除重复元素</li>
+</ul>
+<p><strong>映射</strong></p>
+<ul>
+<li>map(Function f) — 接收Lambda，该函数会被应用到每个元素上。即该接口的传入参数即流中的数据，返回值即转换成的类型</li>
+<li>flatMap — 接收一个函数作为参数，将流中的每个值都换成另一个流，然后将所有流连续成一个流</li>
+</ul>
+<p><strong>排序</strong></p>
+<ul>
+<li>sorted() — 自然排序</li>
+<li>sorted(Comparator com) — 定制排序</li>
+</ul>
+<h4 id="2-3-终止操作"><a href="#2-3-终止操作" class="headerlink" title="2.3 终止操作"></a>2.3 终止操作</h4><blockquote>
+<p>返回值是非Stream</p>
+</blockquote>
+<p><strong>查找and匹配</strong></p>
+<hr>
+<p>返回值为boolean</p>
+<ul>
+<li>allMatch — 检查是否匹配所有元素</li>
+<li>anyMatch — 检查是否至少匹配一个元素</li>
+<li>noneMatch — 检查是否没有匹配所有元素</li>
+</ul>
+<hr>
+<ul>
+<li>findFirst — 返回第一个元素</li>
+<li><p>findAny — 返回当前流中的任意元素</p>
+</li>
+<li><p>count — 返回流中元素的总个数，返回值为Long</p>
+</li>
+<li><p>max — 返回流中最大值，返回值为Optional<t></t></p>
+</li>
+<li>min — 返回值中最小值 ，返回值同max</li>
+</ul>
+<p><strong>归约</strong></p>
+<ul>
+<li>reduce — 将流中元素反复结合</li>
+</ul>
+<p><strong>收集</strong></p>
+<ul>
+<li>collect(Collector c)。— 将流转换为其他形式 Collectors实用类提供了很多返回Collector的静态方法</li>
+</ul>
+<blockquote>
+<p>总得来说就是Stream的API使用</p>
+</blockquote>
+<h2 id="四-Optional容器类"><a href="#四-Optional容器类" class="headerlink" title="四.Optional容器类"></a>四.Optional容器类</h2><p><strong>常用方法</strong></p>
+<ul>
+<li>Optional.of(T t) : 创建一个Optional实例。该对象中t为null，会抛出异常</li>
+<li>Optional.empty() : 创建一个空的Optional实例</li>
+<li>Optional.ofNullable : 若t不为null，创建Optional实例，否则创建空实例</li>
+<li>isPresent() : 判断是否包含值</li>
+<li>orElse(T t), 如果对象包含值，返回该值。写替代对象，没有包含则返回替代对象。避免空指针异常</li>
+<li>orElseGet(Supplier s) : 如果调用对象包含值，返回该值，否则返回s获取的值</li>
+<li>map(Function f) : 如果有值对其处理，并返回处理后的Optional，否则返回Optional.empty()</li>
+<li>flatMap(Function f) : 与map类似，要求<strong>返回值必须是Optional</strong></li>
+<li>get方法，获得真实数据</li>
+</ul>
+<p><strong>个人常用方法</strong></p>
+<ul>
+<li>orElse(T t)，在Optional中没有对象时，拿这个默认对象</li>
+<li>orElseGet(Supplier s), 在为null时，用流式接口拿默认值 <strong>(与orElse相比，这里能写自己的逻辑，如在什么条件下，返回啥默认值)</strong></li>
+<li>map、flatMap、filter进行过滤<br><img src="\cttImages\image-20191219205134055.png" alt="image-20191219205134055" style="zoom:80%;"></li>
+</ul>
+<blockquote>
+<p><a href="https://blog.csdn.net/L_Sail/article/details/78868673" target="_blank" rel="noopener">Optional的正确使用姿势</a></p>
+<ul>
+<li>尽量不直接调用get、isPresent()方法，应该依赖于orElse、orElseGet、map这样的方法</li>
+</ul>
+</blockquote>
+<h2 id="四-其他特性"><a href="#四-其他特性" class="headerlink" title="四.其他特性"></a>四.其他特性</h2><h3 id="1-接口方法"><a href="#1-接口方法" class="headerlink" title="1.接口方法"></a>1.接口方法</h3><p>接口中可以定义默认方法(default 方法)，与public 静态方法</p>
+<p><strong>默认方法 “类优先”原则</strong>: 若一个接口中定义了一个默认方法，而另外一个父类或接口中又定义了一个同名方法时，选择父类中的方法</p>
+<blockquote>
+<p>两个接口都提供一个具有相同名称和参数列表的方法，必须覆盖该方法来解决冲突</p>
+</blockquote>
+<h3 id="2-新日期API"><a href="#2-新日期API" class="headerlink" title="2.新日期API"></a>2.新日期API</h3><p>LocalDate、LocalTime、LocalDateTime类的实例是不可变对象(线程安全对象)，分别使用ISO-8601日历系统的日期、时间、日期和时间</p>
+<h3 id="3-注解"><a href="#3-注解" class="headerlink" title="3.注解"></a>3.注解</h3><p>jdk8开始可以重复注解，且可以在类型前写注解</p>
+<p>在创建重复注解时，需加上@Repeatable</p>
+]]></content>
+  </entry>
+  <entry>
+    <title>《设计模式之禅》 设计模式比较</title>
+    <url>/2019/06/24/%E3%80%8A%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%8B%E7%A6%85%E3%80%8B%20%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E6%AF%94%E8%BE%83/</url>
+    <content><![CDATA[<h1 id="第三部分-谁的地盘谁做主-–-设计模式比较"><a href="#第三部分-谁的地盘谁做主-–-设计模式比较" class="headerlink" title="第三部分 谁的地盘谁做主 – 设计模式比较"></a>第三部分 谁的地盘谁做主 – 设计模式比较</h1><h2 id="一-创建类模式比较"><a href="#一-创建类模式比较" class="headerlink" title="一.创建类模式比较"></a>一.创建类模式比较</h2><h3 id="1-工厂方法模式-VS-建造者模式"><a href="#1-工厂方法模式-VS-建造者模式" class="headerlink" title="1.工厂方法模式 VS 建造者模式"></a>1.工厂方法模式 VS 建造者模式</h3><a id="more"></a>
+<p><strong>不同点</strong></p>
+<ul>
+<li><p>意图不同<br>  <code>工厂方法</code>   注重整体对象的创建方法<br>  <code>建造者</code>  注重部分构建的过程，详细关注一个产品部件的生产、安装步骤</p>
+</li>
+<li><p>产品复杂度不同<br>  <code>工厂方法</code>   对象粒度比较粗<br>  <code>建造者</code>  对象粒度比较细</p>
+</li>
+</ul>
+<h3 id="2-抽象工厂模式-VS-建造者模式"><a href="#2-抽象工厂模式-VS-建造者模式" class="headerlink" title="2.抽象工厂模式 VS 建造者模式"></a>2.抽象工厂模式 VS 建造者模式</h3><p><strong>不同点</strong><br>    <code>抽象工厂</code><br>        它是从一个更高层次去看对象的构建，具体到工厂内部还有很多的车间，这些都是隐藏在工厂内部的细节，对外不公布，比建造者的尺度要大<br>    <code>建造者</code><br>        使用在产品的装配方面，如通过装配不同的组件或者相同组件的不同顺序就可以产生一个新的对象</p>
+<h2 id="二-结构类模式比较"><a href="#二-结构类模式比较" class="headerlink" title="二.结构类模式比较"></a>二.结构类模式比较</h2><h3 id="1-代理模式-VS-装饰模式"><a href="#1-代理模式-VS-装饰模式" class="headerlink" title="1.代理模式 VS 装饰模式"></a>1.代理模式 VS 装饰模式</h3><p><strong>共同点</strong>是两者具有相同的接口</p>
+<p><strong>不同点</strong><br><code>代理模式</code></p>
+<ul>
+<li>着重对代理过程的控制</li>
+<li>把当前的行为或功能委托给其他对象执行。代理类负责接口限定，是否可以调用真实对象，e.g. AOP</li>
+</ul>
+<p><code>装饰模式</code></p>
+<ul>
+<li>装饰模式是代理模式的一个特殊应用</li>
+<li>在保证接口不变的情况下对类的功能进行加强or减弱，不做准入条件判断、准入参数过滤。e.g. java.io.* 包</li>
+</ul>
+<h3 id="2-装饰模式-VS-适配器模式"><a href="#2-装饰模式-VS-适配器模式" class="headerlink" title="2.装饰模式 VS 适配器模式"></a>2.装饰模式 VS 适配器模式</h3><p><strong>共同点</strong> 都是包装作用，通过委托的方式实现其功能</p>
+<p><strong>不同点</strong></p>
+<ul>
+<li>意图不同<br><code>装饰模式</code> 加强对象的功能，不改变类的行为和属性<br><code>适配器模式</code> 着重转化(伪装)</li>
+<li>施与对象不同<br><code>装饰模式</code>  包装的是自己的兄弟类，隶属于同一个家族(相同接口或父类)<br><code>适配器模式</code> 必须是两个(非相同接口)不同的对象</li>
+<li>场景不同<br><code>装饰模式</code> 在任何情况下都可以使用<br><code>适配器模式</code> 一个补救模式</li>
+<li>扩展性不同<br><code>装饰模式</code> 容易扩展<br><code>适配器模式</code> 一旦建立，后期去掉就比较困难了<h2 id="三-行为类模式比较"><a href="#三-行为类模式比较" class="headerlink" title="三.行为类模式比较"></a>三.行为类模式比较</h2><h3 id="1-命令模式-VS-策略模式"><a href="#1-命令模式-VS-策略模式" class="headerlink" title="1.命令模式 VS 策略模式"></a>1.命令模式 VS 策略模式</h3><strong>相似点</strong> 在命令模式退化时，比如无接收者(接收者非常简单或是一个java的基础操作，无需专门编写一个接收者)，这种情况下，两者的类图完全相同</li>
+</ul>
+<p><strong>不同点</strong></p>
+<ul>
+<li>关注点不同<br><code>命令模式</code> 着重解耦，通过将请求的内容封装为一个个的命令，来使得请求者和执行者解耦。且同时可以对命令进行多种处理，例如: 撤销、记录<br><code>策略模式</code> 着重算法的完整性、封装性</li>
+<li>角色功能不同<blockquote>
+<p>策略模式中的抽象算法和命令模式中的接收者非常相似。不过职责不同</p>
+</blockquote>
+</li>
+</ul>
+<p><code>命令模式</code>  关注命令的实现，即功能的实现。接收者的变更只影响到命令族的变更(接收者对命令负责)，对请求者(客户端)没有影响，影响范围仅仅只是抽象命令和具体命令，对它的修改不会扩散到其他模块<br><code>策略模式</code>  具体的算法负责一个完整的算法逻辑，是不可拆分的原子业务，当对具体算法进行变更时，就是对算法整体的变更(对客户端可能有影响)</p>
+<ul>
+<li>使用场景不同<br><code>命令模式</code>  适用于解耦两个有紧耦合关系的对象场合或者多命令多撤销的场景<br><code>策略模式</code>  适用于算法要求变换的场景</li>
+</ul>
+<blockquote>
+<p>在命令模式中，我们可以把接收者设计得和策略模式的算法相同，也可以不同。在命令模式中，我们按照职责设计的接口就不适用于策略模式(书第一版418)<br>e.g. zip、gzip压缩 解压缩。接收者可设计成压缩类、解压缩类，也可设计成zip格式类、gzip格式类。在策略模式中，就不能设计成压缩算法类(包含zip、gzip算法)，解压缩算法类(包含zip、gzip算法)，当添加新的格式压缩时会违反开闭原则。所以只能设计成zip格式类(压缩、解压)、gzip格式类(压缩、解压)</p>
+</blockquote>
+<h3 id="2-策略模式-VS-状态模式"><a href="#2-策略模式-VS-状态模式" class="headerlink" title="2.策略模式 VS 状态模式"></a>2.策略模式 VS 状态模式</h3><p><strong>不同点</strong></p>
+<ul>
+<li><p>环境角色职责不同<br><code>策略模式</code>  起到一个委托作用，用于算法的替换<br><code>状态模式</code>  不仅仅是委托行为，还具有登记状态变化的功能</p>
+</li>
+<li><p>解决问题的方式不同<br><code>策略模式</code>   将具体策略类暴露出去，调用者需要具体明白每个策略的不同之处，保证算法可以自由切换<br><code>状态模式</code>   通过内在状态的改变而引起行为改变，状态的改变是由内部条件来改变的</p>
+</li>
+</ul>
+<h3 id="3-责任链模式-VS-观察者模式"><a href="#3-责任链模式-VS-观察者模式" class="headerlink" title="3.责任链模式 VS 观察者模式"></a>3.责任链模式 VS 观察者模式</h3><p><strong>DNS解析过程</strong><br><code>责任链模式</code><br><img src="\cttImages\image-20191219195901007.png" alt="image-20191219195901007" style="zoom:67%;"></p>
+<p><code>观察者模式</code><br><img src="\cttImages\image-20191219195938936.png" alt="image-20191219195938936" style="zoom:67%;"></p>
+<p><strong>不同点</strong></p>
+<ul>
+<li><p>链中的消息对象不同<br><code>责任链模式</code>  基本上不会改变消息对象的结构，虽然每个节点都可以参与消费<br><code>观察者模式</code>  在链中传递的对象可以自由变化，只要上下级节点对传递的对象了解即可</p>
+</li>
+<li><p>上下节点的关系不同<br><code>责任链模式</code>  上下级节点之间没有关系<br><code>观察者模式</code>  上下级关系亲密，下级只关注上级节点的响应，上级只关注下级传递的请求</p>
+</li>
+<li><p>消息的分销渠道不同<br><code>责任链模式</code>  消息从链首传入后，就沿着链开始运动<br><code>观察者模式</code>  具有很大的灵活性，传递方式可以广播也可跳跃等…</p>
+<h2 id="四-跨战区比较"><a href="#四-跨战区比较" class="headerlink" title="四.跨战区比较"></a>四.跨战区比较</h2><h3 id="1-策略模式-VS-桥梁模式"><a href="#1-策略模式-VS-桥梁模式" class="headerlink" title="1.策略模式 VS 桥梁模式"></a>1.策略模式 VS 桥梁模式</h3><p>附:  <a href="https://blog.csdn.net/xingjiarong/article/details/50333543" target="_blank" rel="noopener">https://blog.csdn.net/xingjiarong/article/details/50333543</a></p>
+</li>
+</ul>
+<p><strong><code>策略模式</code></strong><br><img src="\cttImages\image-20191219200016476.png" alt="image-20191219200016476" style="zoom:67%;"></p>
+<p><strong><code>桥接模式</code></strong><br><img src="\cttImages\image-20191219200203737.png" alt="image-20191219200203737" style="zoom:67%;"></p>
+<p><strong>不同点</strong></p>
+<ul>
+<li><p>意图不同<br><code>策略模式</code>  将必要信息封装成一个对象就是一个行为<br><code>桥梁模式</code>  解决在不破坏封装的情况下，如何抽取出它的抽象部分和实现部分</p>
+</li>
+<li><p>变化上<br><code>策略模式</code>  并不考虑Context的变化，只有算法的课替代性。强调Strategy抽象接口的提供是一种算法，一般是无状态，无数据的，Context简单调用这些算法完成其操作<br><code>桥梁模式</code>  Implementor具有变化（ConcreteImplementor），而且Abstraction也可以发生变化（RefinedAbstraction），而且两者的变化是完全独立的，RefinedAbstraction与ConcreateImplementor之间松散耦合</p>
+</li>
+</ul>
+<h3 id="2-门面模式-VS-中介者模式"><a href="#2-门面模式-VS-中介者模式" class="headerlink" title="2.门面模式 VS 中介者模式"></a>2.门面模式 VS 中介者模式</h3><p><strong>不同点</strong></p>
+<ul>
+<li><p>功能区别<br><code>门面模式</code>  增加了一个门面，对子系统来说没有增加任何功能。子系统脱离门面可以独立运行<br><code>中介者模式</code>   增加了业务功能，它把各个同事类中的原有耦合关系移植到了中介者，同事类不能脱离中介者而存在</p>
+</li>
+<li><p>知晓状态不同<br><code>门面模式</code>  子系统不知道有门面存在<br><code>中介者模式</code>   每个同事类都知道中介者的存在，且依靠中介者调和同事之间的关系</p>
+</li>
+<li><p>封装程度不同<br><code>门面模式</code>  一种简单的封装，所有的请求处理都委托给子系统完成<br><code>中介者模式</code>   一个中心，由中心协调同事类完成，并且中心本身也完成部分业务，中介者属于更进一步的业务功能封装</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>学习笔记</category>
+        <category>《设计模式之禅》</category>
+      </categories>
+  </entry>
+  <entry>
     <title>《设计模式之禅》 结构类模式</title>
     <url>/2019/06/19/%E3%80%8A%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%8B%E7%A6%85%E3%80%8B%20%E7%BB%93%E6%9E%84%E7%B1%BB%E6%A8%A1%E5%BC%8F/</url>
     <content><![CDATA[<h1 id="设计模式之禅"><a href="#设计模式之禅" class="headerlink" title="设计模式之禅"></a>设计模式之禅</h1><p>[TOC]</p>
 <h2 id="第二部分-23种设计模式-结构类模式"><a href="#第二部分-23种设计模式-结构类模式" class="headerlink" title="第二部分 23种设计模式- 结构类模式"></a>第二部分 23种设计模式- 结构类模式</h2><blockquote>
 <p>结构类模式: 描述类和对象之间如何进行有效的组织，以形成良好的软件体系结构</p>
 </blockquote>
+<a id="more"></a>
 <h3 id="一-适配器模式"><a href="#一-适配器模式" class="headerlink" title="一.适配器模式"></a>一.适配器模式</h3><p><strong>1.定义</strong><br>将一个类的接口变换成客户端所期待的另一种接口，从而使原本因接口不匹配而无法再一起工作的两个类能够在一起工作</p>
 <blockquote>
 <p>适配器模式又叫变压器模式</p>
 </blockquote>
 <p><strong>2.类图</strong></p>
 <ol>
-<li><p>类适配器<br><img src="\cttImages\image-20191219192724500.png" alt="image-20191219192724500"></p>
+<li><p>类适配器<br><img src="\cttImages\image-20191219192724500.png" alt="image-20191219192724500" style="zoom:67%;"></p>
 </li>
-<li><p>对象适配器(使用的场景相对较多)<br><img src="\cttImages\image-20191219192815356.png" alt="image-20191219192815356"></p>
+<li><p>对象适配器(使用的场景相对较多)<br><img src="\cttImages\image-20191219192815356.png" alt="image-20191219192815356" style="zoom:67%;"></p>
 </li>
 </ol>
 <p><strong>3.角色</strong></p>
@@ -63,7 +317,8 @@
 <li>灵活性非常好</li>
 </ol>
 <p><strong>5.注意事项</strong><br>适配器模式在详细设计阶段不要考虑它，它不是为了解决还处在开发阶段的问题</p>
-<h3 id="二-代理模式-委托模式"><a href="#二-代理模式-委托模式" class="headerlink" title="二.代理模式(委托模式)"></a>二.代理模式(委托模式)</h3><p><strong>1.定义</strong><br>为其他对象提供一种代理以控制对这个对象的访问<br><strong>2.类图</strong><br><img src="en-resource://database/1249:1" alt="1a539271da5e3bb95f00db250db4b864.png"><br><strong>3.角色</strong></p>
+<h3 id="二-代理模式-委托模式"><a href="#二-代理模式-委托模式" class="headerlink" title="二.代理模式(委托模式)"></a>二.代理模式(委托模式)</h3><p><strong>1.定义</strong><br>为其他对象提供一种代理以控制对这个对象的访问<br><strong>2.类图</strong><br><img src="\cttImages\image-20191219192724500.png" alt="image-20191219192724500" style="zoom:80%;"></p>
+<p><strong>3.角色</strong></p>
 <ol>
 <li><p>Subject 抽象主题角色<br>抽象主题类可以是抽象类也可以是接口。(包含需要被代理的方法)</p>
 </li>
@@ -74,25 +329,13 @@
 </ol>
 <p><strong>4.扩展</strong></p>
 <ul>
-<li><ul>
-<li>1.普通代理<br>我们需要知道代理类的存在。需要自己new</li>
-</ul>
-</li>
-<li><ul>
-<li>2.强制代理<br>调用者直接调用真实角色，而不用关心代理是否存在，代理从真实角色中产生</li>
-</ul>
-</li>
-<li><ul>
-<li>3.虚拟代理<br>在需要的时候才初始化主题对象，可以避免被代理对象较多而引起的初始化缓慢问题。缺点是需要在每个方法中判断主题对象是否被创建</li>
-</ul>
-</li>
-<li><ul>
-<li>4.动态代理 — 类图<br><img src="en-resource://database/1250:1" alt="2cb766d2e8289b9021127da32a76c70f.png"></li>
-</ul>
-</li>
+<li>*1.普通代理<br>我们需要知道代理类的存在。需要自己new</li>
+<li>*2.强制代理<br>调用者直接调用真实角色，而不用关心代理是否存在，代理从真实角色中产生</li>
+<li>*3.虚拟代理<br>在需要的时候才初始化主题对象，可以避免被代理对象较多而引起的初始化缓慢问题。缺点是需要在每个方法中判断主题对象是否被创建</li>
+<li>*4.动态代理 — 类图<br><img src="\cttImages\image-20191219193603515.png" alt="image-20191219193603515" style="zoom: 80%;"></li>
 </ul>
 <h3 id="三-装饰模式"><a href="#三-装饰模式" class="headerlink" title="三.装饰模式"></a>三.装饰模式</h3><p><strong>1.定义</strong><br>动态地给一个对象添加一些额外的职责，就增加功能</p>
-<p><strong>2.类图</strong><br><img src="en-resource://database/1257:1" alt="6161dbdc4c55d2b867ab1f17c325eaf8.png"></p>
+<p><strong>2.类图</strong><br><img src="\cttImages\image-20191219193654957.png" alt="image-20191219193654957" style="zoom:80%;"></p>
 <p><strong>3.角色</strong></p>
 <ol>
 <li><p>Component 抽象构件<br>一个接口或抽象类，原始对象。放需要加强的方法</p>
@@ -110,29 +353,31 @@
 <li>代理模式：限制了使用者，只去调用代理，至于代理里面增加了什么功能，使用者是不知道，隐藏了一个对象的具体信息。代理和真实对象之间的的关系通常在编译时就已经确定</li>
 </ul>
 </blockquote>
-<h3 id="四-组合模式"><a href="#四-组合模式" class="headerlink" title="四.组合模式"></a>四.组合模式</h3><p><strong>1.定义</strong><br>将对象组合成树形结构表示”部分-整体”的层次结构，使得用户对单个对象和组合对象的使用具有一致性<br><strong>2.类图</strong><br><img src="en-resource://database/1254:1" alt="20e6d4a96f45e9cdc5a202583b0a2fae.png"><br><strong>3.角色</strong></p>
+<h3 id="四-组合模式"><a href="#四-组合模式" class="headerlink" title="四.组合模式"></a>四.组合模式</h3><p><strong>1.定义</strong><br>将对象组合成树形结构表示”部分-整体”的层次结构，使得用户对单个对象和组合对象的使用具有一致性</p>
+<p><strong>2.类图</strong><br><img src="\cttImages\image-20191219193741848.png" alt="image-20191219193741848" style="zoom:67%;"></p>
+<p><strong>3.角色</strong></p>
 <ol>
-<li><p>Component 抽象构件角色<br>定义组合对象的共有方法和属性，可以定义一些默认的行为或属性<br><img src="en-resource://database/1256:1" alt="4884b2468ccb20be7c1ef8d7d8d009f7.png"></p>
+<li><p>Component 抽象构件角色<br>定义组合对象的共有方法和属性，可以定义一些默认的行为或属性<br><img src="\cttImages\image-20191219193815191.png" alt="image-20191219193815191" style="zoom:67%;"></p>
 </li>
-<li><p>Leaf 叶子构件<br>叶子对象，其下再没有其他分支，即遍历的最小单元<br><img src="en-resource://database/1258:1" alt="66cd6d7a6451a7f195644a3cd1a6ace8.png"></p>
+<li><p>Leaf 叶子构件<br>叶子对象，其下再没有其他分支，即遍历的最小单元<br><img src="\cttImages\image-20191219194104047.png" alt="image-20191219194104047" style="zoom:67%;"></p>
 </li>
-<li><p>Composite 树枝构件<br>树枝对象，组合树枝节点和叶子节点形成一个树形结构<br><img src="en-resource://database/1260:1" alt="a610aa4990783ada388eddcf8080b5c5.png"></p>
+<li><p>Composite 树枝构件<br>树枝对象，组合树枝节点和叶子节点形成一个树形结构<br><img src="\cttImages\image-20191219194410086.png" alt="image-20191219194410086" style="zoom:67%;"></p>
 </li>
 </ol>
-<p><strong>遍历树结构</strong>，参考代码<br><img src="en-resource://database/1252:1" alt="1673fa27c55767963cf2ec6848695253.png"></p>
+<p><strong>遍历树结构</strong>，参考代码<br><img src="D:\InviAir\hexo\public\cttImages\image-20191219194455193.png" alt="image-20191219194455193" style="zoom:67%;"></p>
 <p>组合模式是对依赖倒置原则的破坏。</p>
 <p><strong>4.应用</strong><br>优点: 高层模块调用简单、节点自由增加<br>缺点: 直接使用了实现类，在面向接口编程上是很不恰当的，与依赖倒置原则冲突</p>
 <p>使用场景: 维护和展示部分-整体关系、从一个整体中能够独立出部分模块或功能的场景</p>
 <p><strong>5.扩展</strong><br>在实际项目中，树的组装信息是存储在关系型数据库中。我们从数据库读取出来，展示</p>
 <ul>
-<li><strong>5.1.安全模式</strong><br><code>类图</code><br><img src="en-resource://database/1259:1" alt="8be68a57ecccab8b195f2e0010b5642c.png"></li>
+<li><strong>5.1.安全模式</strong><br><code>类图</code><br><img src="\cttImages\image-20191219194612057.png" alt="image-20191219194612057" style="zoom:67%;"></li>
 </ul>
 <p>Component表示结点，区分叶子对象和树枝对象。不提供客户端不可能调用到的方法。但不够透明，因为叶子构件和容器构件具有不同的方法，必须有区别地对待叶子构件和容器构件。违反依赖倒置原则</p>
 <ul>
-<li><strong>5.2.透明模式</strong><br><code>类图</code><br><img src="en-resource://database/1253:1" alt="20cf002a192b8d1c036c68ba2f93ce99.png"></li>
+<li><strong>5.2.透明模式</strong><br><code>类图</code><br><img src="\cttImages\image-20191219194848793.png" alt="image-20191219194848793" style="zoom:67%;"></li>
 </ul>
 <p>在该模式中不区分叶子、树枝对象。确保所有的构件类都有相同的接口，客户端可以相同地对待所有的对象。符合依赖倒置原则。但不够安全，因为叶子对象和容器对象在本质上是有区别的。提供add()、remove()以及getChild()等方法是没有意义的，这在编译阶段不会出错，但在运行阶段如果调用这些方法可能会出错（如果没有提供相应的错误处理代码）</p>
-<h3 id="五-门面模式-外观模式"><a href="#五-门面模式-外观模式" class="headerlink" title="五.门面模式(外观模式)"></a>五.门面模式(外观模式)</h3><p><strong>1. 定义</strong><br>要求一个子系统的外部与其内部的通信必须通过一个统一的对象进行<br><strong>2. 类图</strong><br><img src="en-resource://database/1261:1" alt="b4f4f5c12a3ffee0803f187c6d59a5c6.png"><br><img src="en-resource://database/1251:1" alt="0a3826ab4a1bee97ab678016c5537ce2.png"></p>
+<h3 id="五-门面模式-外观模式"><a href="#五-门面模式-外观模式" class="headerlink" title="五.门面模式(外观模式)"></a>五.门面模式(外观模式)</h3><p><strong>1. 定义</strong><br>要求一个子系统的外部与其内部的通信必须通过一个统一的对象进行<br><strong>2. 类图</strong><br><img src="\cttImages\image-20191219194944056.png" alt="image-20191219194944056" style="zoom:67%;"></p>
 <p><strong>3. 角色</strong></p>
 <ol>
 <li>Facade 门面角色<br>客户端呢可以调用这个角色的方法，该角色知道子系统的所有功能与职责</li>
@@ -145,13 +390,13 @@
 <li>门面不参与子系统内的业务逻辑</li>
 </ul>
 </blockquote>
-<h3 id="六-享元模式"><a href="#六-享元模式" class="headerlink" title="六.享元模式"></a>六.享元模式</h3><p><strong>1. 定义</strong><br>使用共享对象有效地支持大量的细粒度的对象<br><strong>2. 类图</strong><br><img src="en-resource://database/1255:1" alt="3c0aab3176577336f48f933e8b5b9c4a.png"></p>
+<h3 id="六-享元模式"><a href="#六-享元模式" class="headerlink" title="六.享元模式"></a>六.享元模式</h3><p><strong>1. 定义</strong><br>使用共享对象有效地支持大量的细粒度的对象<br><strong>2. 类图</strong><br><img src="\cttImages\image-20191219195021020.png" alt="image-20191219195021020" style="zoom:67%;"></p>
 <p><strong>3. 角色</strong></p>
 <blockquote>
 <p>外部状态: 该状态随环境改变而改变，是不可以共享的状态。对象得以依赖的一个标记<br>内部状态: 该状态不随环境改变而改变，存储在享元对象内部，对象可共享出来的信息</p>
 </blockquote>
 <ol>
-<li><p>Flyweight 抽象享元角色<br>同时定义出对象的外部状态和内部状态<br><img src="en-resource://database/1265:1" alt="ec9ec76fc76ef4ed96c408fd3c08cc36.png"><br><img src="en-resource://database/1264:1" alt="cb92454576b0053ebfe98e2b719be2bf.png"></p>
+<li><p>Flyweight 抽象享元角色<br>同时定义出对象的外部状态和内部状态<br><img src="\cttImages\image-20191219195057451.png" alt="image-20191219195057451" style="zoom:67%;"></p>
 </li>
 <li><p>ConcreteFlyweight 具体享元角色<br>具体的一个产品类，实现抽象角色定义。确定好内部状态(共享)，外部状态可供改变</p>
 <blockquote>
@@ -159,7 +404,7 @@
 </blockquote>
 </li>
 </ol>
-<p><img src="en-resource://database/1263:1" alt="79fcd8a021865d799bc074cd4f928034.png"></p>
+<p><img src="\cttImages\image-20191219195156780.png" alt="image-20191219195156780" style="zoom:67%;"></p>
 <ol start="3">
 <li>unsharedConcreteFlyweight 不可共享的享元角色<br>不存在外部状态、有安全要求不能使用共享技术的对象。该对象一般不会出现在享元工厂中</li>
 </ol>
@@ -167,7 +412,7 @@
 <p>使用抽象享元角色的属性，但不是共享对象</p>
 </blockquote>
 <ol start="4">
-<li>FlyweightFactory 享元工厂<br>构造一个池容器，提供从池中获得对象的方法<br><img src="en-resource://database/1262:1" alt="19180035b0ea370f97dde3e3868b328e.png"></li>
+<li>FlyweightFactory 享元工厂<br>构造一个池容器，提供从池中获得对象的方法<br><img src="\cttImages\image-20191219195230119.png" alt="image-20191219195230119" style="zoom:67%;"></li>
 </ol>
 <blockquote>
 <p>在程序开发中，确认只需要一次赋值的属性则设置为final类型，避免无意修改导致逻辑混乱</p>
@@ -182,10 +427,9 @@
 <p><strong>5. 扩展</strong></p>
 <ol>
 <li>线程安全问题</li>
-<li></li>
 </ol>
 <h3 id="七-桥梁模式"><a href="#七-桥梁模式" class="headerlink" title="七.桥梁模式"></a>七.桥梁模式</h3><p><strong>1.定义</strong><br>将抽象和实现解耦，使得两者可以独立地变化</p>
-<p><strong>2.类图</strong><br><img src="en-resource://database/1266:1" alt="ae5426ac75d8d83981d346a52d6b3f2f.png"></p>
+<p><strong>2.类图</strong><br><img src="\cttImages\image-20191219195410905.png" alt="image-20191219195410905" style="zoom:67%;"></p>
 <p><strong>3.角色</strong></p>
 <ol>
 <li>Abstraction 抽象化角色<br>主要职责是定义出该角色的行为，同时保存一个对实现化角色的引用，该角色一般是抽象类</li>
