@@ -1,0 +1,818 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>JDK Future模式分析</title>
+    <url>/2019/07/21/JDK%20Future%E6%A8%A1%E5%BC%8F/</url>
+    <content><![CDATA[<h1 id="JDK-Future模式分析"><a href="#JDK-Future模式分析" class="headerlink" title="JDK Future模式分析"></a><a href="https://blog.csdn.net/u010365819/article/details/80761332#commentBox" target="_blank" rel="noopener">JDK Future模式分析</a></h1><p>[TOC]</p>
+<h2 id="一-基本概念"><a href="#一-基本概念" class="headerlink" title="一.基本概念"></a>一.基本概念</h2><p><strong>基本方法接口</strong></p>
+<ol>
+<li>Executor接口:<br>void execute(Runnable command)方法。开启一个线程执行任务，无返回值</li>
+<li>ExecutorService接口:<br>继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值</li>
+<li>Callable接口可用于创建线程，call方法会有返回值且可抛出异常</li>
+</ol>
+<p><strong>基本示意图</strong><br><img src="\cttImages\1573998581653.png" alt="1573998581653"></p>
+<h2 id="二-源码分析"><a href="#二-源码分析" class="headerlink" title="二.源码分析"></a>二.源码分析</h2><p><u><strong>线程通过submit提交，该线程的返回值是怎么放到Future中的?</strong></u></p>
+<p><strong>1. submit源码 — 摘自ExecutorService的实现类AbstractExecutorService(子类有ThreadPoolExecutor)</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> Future&lt;?&gt; submit(Runnable task) &#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;Void&gt; ftask = newTaskFor(task, <span class="keyword">null</span>);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Runnable task, T result)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;T&gt; ftask = newTaskFor(task, result);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Callable&lt;T&gt; task)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;T&gt; ftask = newTaskFor(task);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>都调用了newTaskFor方法，task任务作为参数传入。使用前面提到的execute执行开启一个新的线程，<strong>直接返回newTaskFor方法返回的RunnableFuture</strong></p>
+<blockquote>
+<p>通过Future接口的get方法，可以获得真实数据。如果没有则阻塞，有则取出。看状态，第五步分析</p>
+</blockquote>
+<p><strong>2. newTaskFor方法</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">protected</span> &lt;T&gt; <span class="function">RunnableFuture&lt;T&gt; <span class="title">newTaskFor</span><span class="params">(Runnable runnable, T value)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> FutureTask&lt;T&gt;(runnable, value);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">protected</span> &lt;T&gt; <span class="function">RunnableFuture&lt;T&gt; <span class="title">newTaskFor</span><span class="params">(Callable&lt;T&gt; callable)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> FutureTask&lt;T&gt;(callable);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这里都调用了FutureTask的不同参数的构造方法。即每个newTaskFor方法得到的RunnableFuture接口的类型为FutureTask实现类</p>
+<p><strong>3. FutureTask的构造方法</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">FutureTask</span><span class="params">(Runnable runnable, V result)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.callable = Executors.callable(runnable, result);</span><br><span class="line">        <span class="keyword">this</span>.state = NEW;       <span class="comment">// ensure visibility of callable</span></span><br><span class="line">    &#125;</span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> &lt;T&gt; <span class="function">Callable&lt;T&gt; <span class="title">callable</span><span class="params">(Runnable task, T result)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>)</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> RunnableAdapter&lt;T&gt;(task, result);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">FutureTask</span><span class="params">(Callable&lt;V&gt; callable)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (callable == <span class="keyword">null</span>)</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        <span class="keyword">this</span>.callable = callable;</span><br><span class="line">        <span class="keyword">this</span>.state = NEW;       <span class="comment">// ensure visibility of callable</span></span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li>FutureTask中含有Callable类型的属性</li>
+<li>以Runnable接口为参数的构造方法，调用了callable方法。该方法源码已贴，即使用了适配器模式，将Runnable接口适配成Callable接口类型(即call方法调用run，且无返回值)。放入到FutureTask的Callable属性</li>
+<li>以Callable接口为参数的构造方法，直接放入到FutureTask的Callable属性</li>
+</ul>
+<p><strong>4. FutureTask的run方法。看完1-3，此时构造FutureTask完毕(即封装原始task完毕)，开始调用executor方法，以FutureTask作为任务参数，开启新线程执行其中的run方法</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (state != NEW ||</span><br><span class="line">            !UNSAFE.compareAndSwapObject(<span class="keyword">this</span>, runnerOffset,</span><br><span class="line">                                         <span class="keyword">null</span>, Thread.currentThread()))</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Callable&lt;V&gt; c = callable;</span><br><span class="line">            <span class="keyword">if</span> (c != <span class="keyword">null</span> &amp;&amp; state == NEW) &#123;</span><br><span class="line">                V result;</span><br><span class="line">                <span class="keyword">boolean</span> ran;</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    result = c.call();</span><br><span class="line">                    ran = <span class="keyword">true</span>;</span><br><span class="line">                &#125; <span class="keyword">catch</span> (Throwable ex) &#123;</span><br><span class="line">                    result = <span class="keyword">null</span>;</span><br><span class="line">                    ran = <span class="keyword">false</span>;</span><br><span class="line">                    setException(ex);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (ran)</span><br><span class="line">                    set(result);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            runner = <span class="keyword">null</span>;</span><br><span class="line">            <span class="keyword">int</span> s = state;</span><br><span class="line">            <span class="keyword">if</span> (s &gt;= INTERRUPTING)</span><br><span class="line">                handlePossibleCancellationInterrupt(s);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>其中调用call方法即执行了原始的任务。其他代码即是封装处理的部分，将返回的参数信息放到Future的result中</p>
+<p><strong>5. Future的get方法。获得真实数据</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> V <span class="title">get</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException, ExecutionException </span>&#123;</span><br><span class="line">        <span class="keyword">int</span> s = state;</span><br><span class="line">        <span class="keyword">if</span> (s &lt;= COMPLETING)</span><br><span class="line">            s = awaitDone(<span class="keyword">false</span>, <span class="number">0L</span>);</span><br><span class="line">        <span class="keyword">return</span> report(s);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line"><span class="function"><span class="keyword">private</span> V <span class="title">report</span><span class="params">(<span class="keyword">int</span> s)</span> <span class="keyword">throws</span> ExecutionException </span>&#123;</span><br><span class="line">        Object x = outcome;</span><br><span class="line">        <span class="keyword">if</span> (s == NORMAL)</span><br><span class="line">            <span class="keyword">return</span> (V)x;</span><br><span class="line">        <span class="keyword">if</span> (s &gt;= CANCELLED)</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> CancellationException();</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> ExecutionException((Throwable)x);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">int</span> <span class="title">awaitDone</span><span class="params">(<span class="keyword">boolean</span> timed, <span class="keyword">long</span> nanos)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">long</span> deadline = timed ? System.nanoTime() + nanos : <span class="number">0L</span>;</span><br><span class="line">        WaitNode q = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">boolean</span> queued = <span class="keyword">false</span>;</span><br><span class="line">        <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">            <span class="keyword">if</span> (Thread.interrupted()) &#123;</span><br><span class="line">                removeWaiter(q);</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> InterruptedException();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">int</span> s = state;</span><br><span class="line">            <span class="keyword">if</span> (s &gt; COMPLETING) &#123;</span><br><span class="line">                <span class="keyword">if</span> (q != <span class="keyword">null</span>)</span><br><span class="line">                    q.thread = <span class="keyword">null</span>;</span><br><span class="line">                <span class="keyword">return</span> s;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (s == COMPLETING) <span class="comment">// cannot time out yet</span></span><br><span class="line">                Thread.yield();</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (q == <span class="keyword">null</span>)</span><br><span class="line">                q = <span class="keyword">new</span> WaitNode();</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (!queued)</span><br><span class="line">                queued = UNSAFE.compareAndSwapObject(<span class="keyword">this</span>, waitersOffset,</span><br><span class="line">                                                     q.next = waiters, q);</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (timed) &#123;</span><br><span class="line">                nanos = deadline - System.nanoTime();</span><br><span class="line">                <span class="keyword">if</span> (nanos &lt;= <span class="number">0L</span>) &#123;</span><br><span class="line">                    removeWaiter(q);</span><br><span class="line">                    <span class="keyword">return</span> state;</span><br><span class="line">                &#125;</span><br><span class="line">                LockSupport.parkNanos(<span class="keyword">this</span>, nanos);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">                LockSupport.park(<span class="keyword">this</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+]]></content>
+  </entry>
+  <entry>
+    <title>《设计模式之禅》 行为类模式</title>
+    <url>/2019/06/14/%E3%80%8A%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%8B%E7%A6%85%E3%80%8B%20%E8%A1%8C%E4%B8%BA%E7%B1%BB%E6%A8%A1%E5%BC%8F/</url>
+    <content><![CDATA[<h1 id="设计模式之禅"><a href="#设计模式之禅" class="headerlink" title="设计模式之禅"></a>设计模式之禅</h1><p>[TOC]</p>
+<h2 id="第二部分-23种设计模式-行为类模式"><a href="#第二部分-23种设计模式-行为类模式" class="headerlink" title="第二部分 23种设计模式- 行为类模式"></a>第二部分 23种设计模式- 行为类模式</h2><a id="more"></a>
+<blockquote>
+<p>行为类模式: 描述类和对象之间如何交互及如何分配职责</p>
+</blockquote>
+<h3 id="一-策略模式"><a href="#一-策略模式" class="headerlink" title="一.策略模式"></a>一.策略模式</h3><p><strong>1.定义</strong></p>
+<p>定义一组算法，将每个算法都封装起来，并使得它们可以互相转换<br><strong>2.类图</strong></p>
+<p><img src="\cttImages\1574076112007.png" alt="1574076112007"><br><strong>3.角色</strong></p>
+<ol>
+<li>Context 封装角色<br> 上下文角色，对策略进行封装，屏蔽高层模块对策略算法的直接访问</li>
+<li>Strategy抽象策略角色<br> 通常为接口，定义每个策略算法必须具有的方法和属性</li>
+<li>ConcreteStrategy具体策略角色<br> 实现抽象策略中的操作</li>
+</ol>
+<blockquote>
+<p><strong>相比代理模式</strong><br>策略模式中封装角色(代理角色) 与 被封装的策略类(原角色) 不是用同一个接口</p>
+</blockquote>
+<p><strong>4.优点</strong></p>
+<ol>
+<li>算法可以自由切换</li>
+<li>避免使用多重条件判断</li>
+<li>扩展性良好</li>
+</ol>
+<p><strong>5.缺点</strong></p>
+<ol>
+<li>策略类数量增多</li>
+<li>所有策略类都要对外暴露</li>
+</ol>
+<h3 id="二-迭代器模式"><a href="#二-迭代器模式" class="headerlink" title="二.迭代器模式"></a>二.迭代器模式</h3><p><strong>1.定义</strong></p>
+<p>它提供一种方法访问一个容器对象中各个元素，而又不需暴露该对象的内部细节</p>
+<blockquote>
+<p>目前已经没落的模式</p>
+</blockquote>
+<p><strong>2.类图</strong><br><img src="\cttImages\1574076132128.png" alt="1574076132128"></p>
+<p><strong>3.角色</strong></p>
+<ol>
+<li><p>Iterator抽象迭代器<br> <img src="\cttImages\1574076150431.png" alt="1574076150431"></p>
+</li>
+<li><p>ConcreteIterator具体迭代器</p>
+</li>
+<li>Aggregate抽象容器</li>
+<li>ConcreteAggregate具体容器</li>
+</ol>
+<p><strong>4.应用</strong><br>java.util.Iterable接口( 只有一个方法: iterator() ) 已经应用到了各个集合类中。基本很少有项目再独立写迭代器，直接使用Collection下的实现类就可以解决问题。<strong>迭代器的使用将访问逻辑与数据结构分离开来，不同的数据结构都可以用同样的逻辑来读取这些数据</strong></p>
+<h3 id="三-模版方法模式"><a href="#三-模版方法模式" class="headerlink" title="三.模版方法模式"></a>三.模版方法模式</h3><p><strong>1.定义</strong></p>
+<p>定义一个操作中的算法的框架，而将一些步骤延迟到子类中。使得子类可以不改变一个算法的结构即可重新定义该算法的某些特定步骤</p>
+<p><strong>2.类图</strong><br><img src="\cttImages\1574076166402.png" alt="1574076166402"></p>
+<p><strong>3.角色</strong></p>
+<ol>
+<li><p>AbstractClass 抽象模版，方法分为两类:</p>
+<ul>
+<li>基本方法(基本操作)，需由子类实现的方法，在模版方法时被调用</li>
+<li>模版方法，一般是一个或几个，一般是一个具体方法，实现对基本方法的调度<blockquote>
+<p>为了防止恶意操作，一般模版方法都加上final关键字，不允许被覆写</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li><p>ConcreteClass1、ConcreteClass2 具体模版<br> 实现父类所定义的一个或多个抽象方法，也就是父类定义的基本方法在子类中得以实现</p>
+</li>
+</ol>
+<p><strong>4.优点</strong></p>
+<ol>
+<li>封装不变部分，扩展可变部分</li>
+<li>提取公共部分代码，便于维护</li>
+<li>行为由父类控制，子类实现</li>
+</ol>
+<p><strong>5.扩展</strong></p>
+<p>使用钩子函数，通过标识/子类的一个方法返回值决定公共部分的执行结果</p>
+<h3 id="四-中介者模式"><a href="#四-中介者模式" class="headerlink" title="四.中介者模式"></a>四.中介者模式</h3><p><strong>1.定义</strong><br>使各对象不需要显示地互相作用，从而使器耦合松散，独立地改变它们之间的交互</p>
+<p><strong>2.类图</strong><br><img src="\cttImages\1574076188097.png" alt="1574076188097"></p>
+<p><strong>3.角色</strong></p>
+<ol>
+<li><p>Mediator 抽象中介者角色<br> 用于各同事角色之间的通信</p>
+</li>
+<li><p>Concrete Mediator 具体中介者角色<br> 协调各同事角色实现协作行为，因此依赖于各个同事角色</p>
+</li>
+<li><p>Colleague 同事角色<br> 每一个同事角色都知道中介者角色。行为分为同事本身的自发行为、依赖中介者的依赖行为</p>
+</li>
+</ol>
+<blockquote>
+<p>通用代码见设计模式之禅P174</p>
+</blockquote>
+<p><strong>4.应用</strong></p>
+<p>优点: 减少类间的依赖，降低耦合<br>缺点: 中介者会膨胀得很大，逻辑复杂</p>
+<p>使用场景: 类图中出现了蜘蛛网结构，中介者模式有利于把其梳理为星型结构</p>
+<blockquote>
+<p>实际应用</p>
+<ol>
+<li>MVC框架，C(Controller)就是一个中介者，作用就是将M(Model 业务逻辑)和V(View 视图)隔离开，协调M和V工作</li>
+<li>媒体网关</li>
+</ol>
+</blockquote>
+<h3 id="五-命令模式"><a href="#五-命令模式" class="headerlink" title="五.命令模式"></a>五.命令模式</h3><p><strong>1.定义</strong></p>
+<p>将一个请求封装成一个对象，从而让你使用不同的请求把客户端参数化，对请求排队或者记录请求日志，可以提供命令的撤销和恢复功能</p>
+<p><strong>2.类图</strong></p>
+<p><img src="\cttImages\1574076215508.png" alt="1574076215508"> </p>
+<p><strong>3.角色</strong></p>
+<ol>
+<li><p>Receive 接受者角色<br> 干活的角色，命令传递到该角色执行</p>
+</li>
+<li><p>Command 命令角色<br> 需要执行的命令都在这声明</p>
+</li>
+<li><p>Invoker 调用者角色<br> 接收命令，并执行命令</p>
+</li>
+</ol>
+<p><strong>4.应用</strong></p>
+<p>优点: 类间解耦、可扩展性、<br>缺点: Command的子类可能会膨胀得很大</p>
+<p><strong>5.实践</strong></p>
+<ol>
+<li>当客户反悔了，需要回滚。有两种方法，一 结合备忘录模式还原最后状态，二 新增一个反命令。在接受者中添加rollback方法</li>
+<li>命令类的Receiver在实际应用中一般会被封装掉</li>
+</ol>
+<h3 id="六-责任链模式"><a href="#六-责任链模式" class="headerlink" title="六.责任链模式"></a>六.责任链模式</h3><p><strong>1.定义</strong><br>使多个对象都有机会处理请求，从而避免了请求发送者和接受者之间的耦合关系，将这些对象连成一条链，沿着这条链传递该请求，直到有对象处理它为止</p>
+<p><strong>2.类图</strong><br><img src="\cttImages\1574076236959.png" alt="1574076236959"></p>
+<p><strong>3.角色</strong></p>
+<ol>
+<li>Handler 抽象处理者—抽象类</li>
+</ol>
+<p><img src="\cttImages\1574076271765.png" alt="1574076271765"> </p>
+<ol start="2">
+<li>ConcreteHandler 具体实现类</li>
+</ol>
+<p>在处理中涉及了三个类<br><img src="\cttImages\1574076288847.png" alt="1574076288847"> </p>
+<p>场景类<br><img src="\cttImages\1574076303447.png" alt="1574076303447"></p>
+<p>在实际应用中，会有封装类对具体链的设置进行封装，简化高层次模块的调用，减少模块间的耦合</p>
+<p><strong>4.应用</strong><br>优点: 将请求和处理分开<br>缺点: 性能问题，当链特别长时，调试不方便</p>
+<p><strong>5.实践</strong><br>例子中的Handler时抽象类，融合了模版方法。每个实现类只需要关心echo方法处理请求，getHandlerLevel获得处理级别</p>
+<h3 id="七-观察者模式-发布订阅模式"><a href="#七-观察者模式-发布订阅模式" class="headerlink" title="七.观察者模式(发布订阅模式)"></a>七.观察者模式(发布订阅模式)</h3><p><strong>1. 定义</strong></p>
+<p>定义对象间一种一对多的依赖关系，使得每当一个对象改变状态，则所有依赖于它的对象都会得到通知并被自动更新</p>
+<p><strong>2. 类图</strong></p>
+<p><img src="\cttImages\1574076322197.png" alt="1574076322197"> </p>
+<p><strong>3. 角色</strong></p>
+<ol>
+<li>Subject 被观察者<br> 定义被观察者必须实现的职责，能够动态增加、取消观察者</li>
+<li>Observer 观察者<br> 观察者接收到消息，执行自己的业务逻辑update</li>
+<li>ConcreteSubject 具体的被观察者</li>
+<li>ConcreteObserver 具体的观察者</li>
+</ol>
+<p><strong>4. 应用</strong></p>
+<p>优点: 观察者与被观察者对象是抽象耦合的、建立一套触发机制<br>缺点: 注意多级触发时的效率</p>
+<blockquote>
+<p>根据经验，一个观察者模式中最多出现一个对象既是观察者也是被观察者，也就是说消息最多被转发一次<br>util包提供了Observer、Observeble接口使用</p>
+</blockquote>
+<h3 id="八-备忘录模式"><a href="#八-备忘录模式" class="headerlink" title="八.备忘录模式"></a>八.备忘录模式</h3><p><strong>1. 定义</strong></p>
+<p>在不破坏封装性的前提下，捕获一个对象的内部状态，并在该对象之外保存这个状态，以后可将该对象恢复到原先保存的状态</p>
+<p><strong>2. 类图</strong></p>
+<p><img src="\cttImages\1574076336706.png" alt="1574076336706"> </p>
+<p><strong>3. 角色</strong></p>
+<ol>
+<li>Originator 发起人角色<br> 记录当前时刻的内部状态，负责定义哪些属性需要备份，创建、恢复备忘录数据</li>
+<li>Memento 备忘录角色<br> 负责存储Originator 对象的内部状态</li>
+<li>Caretaker 备忘录管理员角色<br> 对备忘录进行管理，保存和提供备忘录</li>
+</ol>
+<p><strong>4. 应用</strong></p>
+<p><code>使用场景</code></p>
+<ul>
+<li>需要保存及恢复数据</li>
+<li>提供回滚操作</li>
+</ul>
+<p><code>注意事项</code></p>
+<ul>
+<li>备忘录的生命期</li>
+<li>备忘录的性能</li>
+</ul>
+<p><strong>5. 扩展</strong></p>
+<ol>
+<li>clone方式创建备忘录<br> 通过让发起人实现Clonable接口</li>
+<li>多状态的备忘录模式(这一部分的事例代码看的有点点不懂)</li>
+<li>多备份备忘录<br> 存储备忘录通过容器类</li>
+<li>安全性封装<br> 类图如下: <img src="cttImages\1574076359350.png" alt="1574076359350"><br> 外部只保留一个空接口，数据存储在Caretaker，当要恢复取得对象时，只有在发起人类中才能将拿到的对象，转换成正确的类型</li>
+</ol>
+<h3 id="九-访问者模式"><a href="#九-访问者模式" class="headerlink" title="九.访问者模式"></a>九.访问者模式</h3><p><strong>1. 定义</strong></p>
+<p>封装一些作用于某种数据结构中的各元素的操作，在不改变数据结构的前提下定义作用于这些元素的新操作</p>
+<p><strong>2. 类图</strong></p>
+<p><img src="\cttImages\1574076385943.png" alt="1574076385943"> </p>
+<p><strong>3. 角色</strong></p>
+<ol>
+<li><p>Visitor 抽象访问者<br> 抽象类或接口，声明访问者可以访问哪些元素<br> <img src="\cttImages\1574076403818.png" alt="1574076403818"></p>
+</li>
+<li><p>ConcreteVisitor 具体访问者<br> <img src="\cttImages\1574076418787.png" alt="1574076418787"></p>
+</li>
+<li><p>Element 抽象元素<br> 抽象类或接口，声明接受哪一类访问者访问。通过accept方法的参数定义</p>
+</li>
+<li>ConcreteElement 具体元素</li>
+<li>ObjectStruture 结构对象<br> 元素生产者</li>
+</ol>
+<p><strong>4. 应用</strong></p>
+<p><code>优点</code></p>
+<ul>
+<li>符合单一职责原则</li>
+<li>优秀的扩展性</li>
+<li>灵活性非常高</li>
+</ul>
+<p><code>缺点</code></p>
+<ul>
+<li>具体元素对访问者公布细节</li>
+<li>具体元素的变更困难</li>
+<li>违背了依赖倒置原则，访问者依赖具体元素，不是接口</li>
+</ul>
+<blockquote>
+<p>访问者模式是对迭代器模式的扩充</p>
+</blockquote>
+<h3 id="十-状态模式"><a href="#十-状态模式" class="headerlink" title="十.状态模式"></a>十.状态模式</h3><p><strong>1. 定义</strong></p>
+<p>当一个对象内在状态改变时允许其改变行为，这个对象看起来像改变了其类</p>
+<p><strong>2. 类图</strong></p>
+<p><img src="\cttImages\1574076433792.png" alt="1574076433792"></p>
+<p><strong>3. 角色</strong></p>
+<ol>
+<li>State 抽象状态角色<br> 接口或抽象类，负责对象状态定义，封装环境角色实现状态切换<br> <img src="\cttImages\1574076447299.png" alt="1574076447299"></li>
+</ol>
+<blockquote>
+<p>定义了每个状态下的方法</p>
+</blockquote>
+<ol start="2">
+<li>ConcreteState 具体状态角色<br> <code>每个具体状态需要完成的两个职责:</code><ul>
+<li>本状态的行为管理</li>
+<li>本状态过渡到其他状态<br><img src="\cttImages\1574076461709.png" alt="1574076461709"></li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>具体状态下，对对应方法的实现，及切换状态(改变Context中的状态角色)</p>
+</blockquote>
+<ol start="3">
+<li>Context 环境角色<br> 定义客户端需要的接口，并且负责具体状态的切换<br> <img src="\cttImages\1574076494353.png" alt="1574076494353"></li>
+</ol>
+<blockquote>
+<p>不成文约束:</p>
+<ul>
+<li>把状态对象声明为静态常量，有几个状态就声明几个</li>
+<li>环境角色具有状态抽象角色的所有行为。具体执行使用委托方式</li>
+</ul>
+</blockquote>
+<p>附: 场景类<br><img src="\cttImages\1574076504604.png" alt="1574076504604"></p>
+<p><strong>4. 应用</strong></p>
+<blockquote>
+<p>工作流</p>
+</blockquote>
+<p><code>优点</code></p>
+<ul>
+<li>结构清晰</li>
+<li>遵循设计原则</li>
+<li>封装性好</li>
+</ul>
+<p><code>缺点</code> : 子类太多，会造成类膨胀</p>
+<p><code>使用场景</code> : 行为随状态改变而改变，条件分支判断语句的替代者</p>
+<h3 id="十一-解释器模式"><a href="#十一-解释器模式" class="headerlink" title="十一.解释器模式"></a>十一.解释器模式</h3><p>按照一种规定语法进行解析的方案，在项目中使用的较少<br><strong>1.定义</strong><br>给定一门语言，定义它的文法的一种表示，并定义一个解释器，该解释器使用该表示来解释语言中的句子</p>
+<blockquote>
+<p><strong>不详细写</strong></p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>学习笔记</category>
+        <category>《设计模式之禅》</category>
+      </categories>
+  </entry>
+  <entry>
+    <title>《设计模式之禅》 创建类模式</title>
+    <url>/2019/06/04/%E3%80%8A%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%8B%E7%A6%85%E3%80%8B%E5%88%9B%E5%BB%BA%E7%B1%BB%E6%A8%A1%E5%BC%8F/</url>
+    <content><![CDATA[<h1 id="设计模式之禅"><a href="#设计模式之禅" class="headerlink" title="设计模式之禅"></a>设计模式之禅</h1><p>[TOC]</p>
+<h2 id="第二部分-23种设计模式-创建类模式"><a href="#第二部分-23种设计模式-创建类模式" class="headerlink" title="第二部分 23种设计模式- 创建类模式"></a>第二部分 23种设计模式- 创建类模式</h2><a id="more"></a>
+<blockquote>
+<p>创建类模式: 使软件模块做到与对象的创建和组织无关</p>
+</blockquote>
+<h3 id="一-单例模式"><a href="#一-单例模式" class="headerlink" title="一.单例模式"></a>一.单例模式</h3><h4 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h4><p>确保某一个类只有一个实例，并自省实例化向整个系统提供这个实例</p>
+<h4 id="缺点"><a href="#缺点" class="headerlink" title="缺点"></a>缺点</h4><ol>
+<li>一般没有接口，扩展很困难。除了修改代码基本没有第二种途径</li>
+<li>对测试不利</li>
+<li>与单一职责原则有冲突</li>
+</ol>
+<h4 id="扩展"><a href="#扩展" class="headerlink" title="扩展"></a>扩展</h4><ol>
+<li>懒汉式、饿汉式</li>
+<li>带固定数量的单例</li>
+</ol>
+<h3 id="二-工厂方法模式"><a href="#二-工厂方法模式" class="headerlink" title="二.工厂方法模式"></a>二.工厂方法模式</h3><h4 id="定义-1"><a href="#定义-1" class="headerlink" title="定义"></a>定义</h4><p>定义一个用于创建对象的接口，让子类决定实例化哪一个类。使一个类的实例化延迟到其子类</p>
+<h4 id="优点"><a href="#优点" class="headerlink" title="优点"></a>优点</h4><p>降低模块间耦合，一个调用者需要一个具体的产品对象，只要知道这个产品的类名就可以了，不用知道创建对象的艰辛过程</p>
+<h4 id="扩展-1"><a href="#扩展-1" class="headerlink" title="扩展"></a>扩展</h4><ol>
+<li><p>简单工厂模式<br> 工厂类没有抽象类或接口(使用static方法调用)，产品有通用的接口。通过提供标识让工厂生产</p>
+<p>类图**</p>
+<p><img src="\cttImages\1573999817681.png" alt="1573999817681"> </p>
+</li>
+<li><p>工厂方法模式(每个产品提供对应的创建者)<br> 工厂类有抽象类或接口, 需要创建出工厂后调用</p>
+<p><strong>类图</strong></p>
+<p><img src="\cttImages\1573999855220.png" alt="1573999855220"> </p>
+</li>
+<li><p>替代单例模式<br> 单例的类不提供静态方法创建实例，通过工厂的静态方法来创建(通过反射)</p>
+<p><strong>类图</strong></p>
+<p><img src="\cttImages\1573999897554.png" alt="1573999897554"> </p>
+</li>
+<li><p>延迟初始化: 一个对象被消费完毕后，并不立刻释放，工厂类保持初始状态，等待再次被使用</p>
+<ul>
+<li><strong>应用场景</strong>: 限制某个产品类的最大实例化数量 JDBC设置的最大连接数量…</li>
+<li><strong>类图</strong><br><img src="\cttImages\1573999949429.png" alt="1573999949429"> </li>
+</ul>
+</li>
+</ol>
+<h3 id="三-抽象工厂模式"><a href="#三-抽象工厂模式" class="headerlink" title="三.抽象工厂模式"></a>三.抽象工厂模式</h3><h4 id="1-定义"><a href="#1-定义" class="headerlink" title="1.定义"></a>1.定义</h4><p>为创建一组相关或相互依赖的对象提供一个接口，而且无需指定它们的具体实现类</p>
+<h4 id="2-类图"><a href="#2-类图" class="headerlink" title="2.类图"></a>2.类图</h4><p><img src="\cttImages\1574075965522.png" alt="1574075965522"> </p>
+<blockquote>
+<p>工厂方法模式的升级版本。在有多个业务品种、业务分类时，是一种很好的解决方式</p>
+</blockquote>
+<h4 id="3-优点"><a href="#3-优点" class="headerlink" title="3.优点"></a>3.优点</h4><ol>
+<li>封装性</li>
+<li>产品族内的约束为非公开的</li>
+</ol>
+<h4 id="4-缺点"><a href="#4-缺点" class="headerlink" title="4.缺点"></a>4.缺点</h4><p>横向扩展容易，但纵向扩展困难</p>
+<blockquote>
+<p><strong>比较 简单工厂、工厂方法、抽象工厂</strong></p>
+<ul>
+<li>简单工厂: 没有工厂接口，需要什么产品，对应传入标识，获得</li>
+<li>工厂方法: 含有工厂接口(接口内就一个生产方法)，分类后，只管生产分类所对应的单一商品，不用传入标识。如: 人类工厂划分为黄人、黑人、白人工厂，黄人工厂只生产黄人</li>
+<li>抽象工厂: 含有工厂接口(接口内有多个生产方法)，分类后，只管生产分类的一系列商品，不用传入标识。如: 人类工厂划分为黄人、黑人、白人工厂，黄人工厂只生产黄人男人、黄人女人</li>
+</ul>
+</blockquote>
+<h3 id="四-建造者模式-生成器模式"><a href="#四-建造者模式-生成器模式" class="headerlink" title="四.建造者模式(生成器模式)"></a>四.建造者模式(生成器模式)</h3><h4 id="1-定义-1"><a href="#1-定义-1" class="headerlink" title="1.定义"></a>1.定义</h4><p>将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示</p>
+<h4 id="2-类图-1"><a href="#2-类图-1" class="headerlink" title="2.类图"></a>2.类图</h4><p><img src="\cttImages\1574075997337.png" alt="1574075997337"> </p>
+<h4 id="3-角色"><a href="#3-角色" class="headerlink" title="3.角色"></a>3.角色</h4><ol>
+<li><p>Product 产品类<br>通常是实现了模版方法模式，也就是有模版方法和基本方法</p>
+</li>
+<li><p>Builder 抽象建造者<br>规范产品的组建，一般由子类实现</p>
+</li>
+<li><p>ConcreteBuilder 具体建造者<br>实现抽象类定义的所有方法，并返回一个组建好的对象</p>
+</li>
+<li><p>Director 导演类<br>负责安排已有模块的顺序，然后告诉Build开始组件。起到封装的作用，避免高层模块深入到建造者内部的实现类</p>
+</li>
+</ol>
+<h4 id="4-优点"><a href="#4-优点" class="headerlink" title="4.优点"></a>4.优点</h4><ol>
+<li>封装性</li>
+<li>建造者独立，容易扩展</li>
+<li>便于控制细节风险</li>
+</ol>
+<h4 id="5-使用场景"><a href="#5-使用场景" class="headerlink" title="5.使用场景"></a>5.使用场景</h4><ol>
+<li>不同的执行顺序，产生不同的事件结果</li>
+<li>多个零件或部件</li>
+</ol>
+<blockquote>
+<p>工厂方法模式，关注的重点是创建，创建零件<br>建造者模式，关注的重点是零件的装配，顺序不同产生的对象也不同</p>
+</blockquote>
+<h3 id="五-原型模式"><a href="#五-原型模式" class="headerlink" title="五.原型模式"></a>五.原型模式</h3><h4 id="1-定义-2"><a href="#1-定义-2" class="headerlink" title="1.定义"></a>1.定义</h4><p>用原型实例指定创建对象的种类，并且拷贝这些原型创建对象</p>
+<h4 id="2-类图-2"><a href="#2-类图-2" class="headerlink" title="2.类图"></a>2.类图</h4><p><img src="\cttImages\1574076013656.png" alt="1574076013656"> </p>
+<h4 id="3-使用"><a href="#3-使用" class="headerlink" title="3.使用"></a>3.使用</h4><p>实体类实现cloneable接口，重写clone方法</p>
+<ul>
+<li>浅拷贝<br><img src="\cttImages\image-20191219115020935.png" alt="image-20191219115020935"></li>
+</ul>
+<p>直接通过Object的clone方法进行拷贝，只拷贝本对象，对象内部的数组、引用对象都不拷贝，指向原生对象的内部元素地址。(在这里String可以当作基本类型使用)</p>
+<ul>
+<li>深拷贝<br><img src="\cttImages\image-20191219115051244.png" alt="image-20191219115051244"></li>
+</ul>
+<p>对私有的类变量进行独立的拷贝</p>
+<h4 id="4-优点-1"><a href="#4-优点-1" class="headerlink" title="4.优点"></a>4.优点</h4><ol>
+<li>性能优良</li>
+<li>逃避构造函数的约束</li>
+</ol>
+<h4 id="5-使用场景-1"><a href="#5-使用场景-1" class="headerlink" title="5.使用场景"></a>5.使用场景</h4><ol>
+<li>资源优化场景</li>
+<li>性能和安全要求</li>
+<li>一个对象多个修改者的场景</li>
+</ol>
+<blockquote>
+<p>要使用clone方法，在类的成员变量上就不要增加final关键字</p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>学习笔记</category>
+        <category>《设计模式之禅》</category>
+      </categories>
+  </entry>
+  <entry>
+    <title>《设计模式之禅》 六大设计原则</title>
+    <url>/2019/03/15/%E3%80%8A%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%8B%E7%A6%85%E3%80%8B%20%E5%85%AD%E5%A4%A7%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99/</url>
+    <content><![CDATA[<h1 id="设计模式之禅"><a href="#设计模式之禅" class="headerlink" title="设计模式之禅"></a>设计模式之禅</h1><p>[TOC]</p>
+<h2 id="第一部分-六大原则"><a href="#第一部分-六大原则" class="headerlink" title="第一部分 六大原则"></a>第一部分 六大原则</h2><a id="more"></a>
+<h3 id="一-单一职责原则-SRP-Single-Responsibility-Principle"><a href="#一-单一职责原则-SRP-Single-Responsibility-Principle" class="headerlink" title="一.单一职责原则(SRP:Single Responsibility Principle)"></a>一.单一职责原则(SRP:Single Responsibility Principle)</h3><ul>
+<li>定义:应该有且仅有一个原因引起类的变更<br>建议是接口一定要做到单一职责，类的设计尽量做到只有一个原因引起变化，也适用于方法</li>
+<li>优点:<ul>
+<li>可以降低类的复杂度，一个类只负责一项职责，其逻辑肯定要比负责多项职责简单的多</li>
+<li>提高类的可读性，提高系统的可维护性</li>
+<li>变更引起的风险降低，变更是必然的，如果单一职责原则遵守的好，当修改一个功能时，可以显著降低对其他功能的影响</li>
+</ul>
+</li>
+</ul>
+<h3 id="二-里氏替换原则-LSP-Liskov-Substitution-Principle"><a href="#二-里氏替换原则-LSP-Liskov-Substitution-Principle" class="headerlink" title="二.里氏替换原则(LSP:Liskov Substitution Principle)"></a>二.<a href="https://www.cnblogs.com/hellojava/archive/2013/03/15/2960905.html" target="_blank" rel="noopener">里氏替换原则(LSP:Liskov Substitution Principle)</a></h3><ul>
+<li>定义:所有引用基类的地方必须能透明地使用其他子类对象</li>
+<li>含义:<ol>
+<li>子类必须完全实现父类的方法<br>如果子类不能完整的实现父类的方法，建议断开父子继承关系，采用<a href="https://www.jianshu.com/p/ee0c26bcbf3d" target="_blank" rel="noopener">依赖、<br>聚合、组合</a>等关系来替代</li>
+<li>子类可以有自己的个性</li>
+<li>覆盖或实现方法时输入参数(前置条件)可以被放大</li>
+<li>覆写或实现父类方法时输出结果(后置条件)可以被缩小</li>
+</ol>
+</li>
+</ul>
+<p>依赖:强调的是<strong>使用上的关系</strong>，是单向的<br>关联(聚合、组合):</p>
+<ul>
+<li>聚合(has-a):整体和部分都可以有各自的声明周期</li>
+<li>组合(contains-a):整体和部分不可分割<br>UML图指向整体，聚合为空心菱形，组合为实心</li>
+</ul>
+<blockquote>
+<p>UML类图的画法见另一份笔记<br>继承是is-a。接口是like-a。参考博文: <a href="https://blog.csdn.net/jy55149676/article/details/80537779" target="_blank" rel="noopener">https://blog.csdn.net/jy55149676/article/details/80537779</a></p>
+</blockquote>
+<h3 id="三-依赖倒置原则-DIP-Dependence-Inversion-Principle"><a href="#三-依赖倒置原则-DIP-Dependence-Inversion-Principle" class="headerlink" title="三.依赖倒置原则(DIP:Dependence Inversion Principle)"></a>三.依赖倒置原则(DIP:Dependence Inversion Principle)</h3><ul>
+<li><p>含义:</p>
+<ol>
+<li>高层模块不应该依赖低层模块，两者应该依赖其抽象</li>
+<li>抽象不应该依赖细节</li>
+<li>细节应该依赖抽象<blockquote>
+<p>不可分割的原子逻辑就是低层模块，原子逻辑再组装就是高层模块<br>java语言中，抽象:接口或抽象类，细节:可以直接被实例化</p>
+</blockquote>
+</li>
+</ol>
+</li>
+<li><p>实践:</p>
+<ol>
+<li>每个类尽量都有接口或抽象类</li>
+<li>变量的表面类型尽量是接口或抽象类</li>
+<li>任何类都不应该从具体类派生</li>
+</ol>
+</li>
+</ul>
+<h3 id="四-接口隔离原则-Interface-Segregation-Principle"><a href="#四-接口隔离原则-Interface-Segregation-Principle" class="headerlink" title="四.接口隔离原则(Interface Segregation Principle)"></a>四.接口隔离原则(Interface Segregation Principle)</h3><ul>
+<li>定义:客户端不应该依赖它不需要的接口，一个类对另一个类的依赖应该建立在最小的接口上<br>接口要尽量小，但也是有限度的</li>
+<li>优点:通过分散定义多个接口，可以预防未来变更的扩散，提高系统的灵活性和可维护性<blockquote>
+<p>单一职责与接口隔离对比：两者审视的角度不同<br>单一职责注重业务逻辑的划分；接口隔离注重接口的方法应该尽量少，只暴露别人需要的部分<br>根据接口隔离原则划分接口的时候，首先必须满足单一职责原则</p>
+</blockquote>
+</li>
+</ul>
+<h3 id="五-迪米特法则"><a href="#五-迪米特法则" class="headerlink" title="五.迪米特法则"></a>五.迪米特法则</h3><ul>
+<li>定义:一个对象应该对其他对象有最少了解（只与朋友类交流、两部分之间的交流做适当的控制）</li>
+<li>优点：弱耦合（弱耦合可以使得类的复用率提高，但是会产生大量的中转类，导致系统复杂性的提高）</li>
+</ul>
+<h3 id="六-开闭原则"><a href="#六-开闭原则" class="headerlink" title="六.开闭原则"></a>六.开闭原则</h3><ul>
+<li>定义:一个软件实体应该对扩展开放，对修改关闭<br>(前面五个原则是对开闭原则的具体解释)</li>
+<li>优点：在对扩展开放的同时，尽量减少对原有代码的修改，保持历史代码的纯洁性，提高系统的稳定性</li>
+</ul>
+]]></content>
+      <categories>
+        <category>学习笔记</category>
+        <category>《设计模式之禅》</category>
+      </categories>
+  </entry>
+  <entry>
+    <title>mybatis 插件使用及原理</title>
+    <url>/2019/03/10/mybatis%20%E6%8F%92%E4%BB%B6%E4%BD%BF%E7%94%A8%E5%8F%8A%E5%8E%9F%E7%90%86/</url>
+    <content><![CDATA[<h1 id="mybatis-插件使用及原理"><a href="#mybatis-插件使用及原理" class="headerlink" title="mybatis 插件使用及原理"></a>mybatis 插件使用及原理</h1><p>[TOC]</p>
+<h2 id="一-插件使用"><a href="#一-插件使用" class="headerlink" title="一. 插件使用"></a>一. 插件使用</h2><a id="more"></a>
+<h3 id="1-接口说明"><a href="#1-接口说明" class="headerlink" title="1. 接口说明"></a>1. <strong>接口说明</strong></h3><p><img src="\cttImages\1573997885762.png" alt="1573997885762"> </p>
+<ul>
+<li>intercept方法:将直接覆盖你所拦截对象原有的方法。参数Invocation中的- proceed可以调用原来的方法</li>
+<li>plugin方法:var1为被拦截对象，该方法为被拦截的对象生成一个代理对象</li>
+<li>setProperties方法:允许在plugin元素中配置所需参数，在插件初始化时，被调用一次，把插件对象存到配置中，方便以后取出</li>
+</ul>
+<h3 id="2-接口示例"><a href="#2-接口示例" class="headerlink" title="2. 接口示例"></a>2. <strong>接口示例</strong></h3><h4 id="2-1-插件接口"><a href="#2-1-插件接口" class="headerlink" title="2.1. 插件接口"></a>2.1. 插件接口</h4><p><img src="\cttImages\1573997925849.png" alt="1573997925849"> </p>
+<p><strong>1. 说明</strong></p>
+<ul>
+<li>创建该接口的类需要加上对象的注解@Intercepts @Signature，标明拦截的类及方法</li>
+<li>mybatis提供Plugin工具类，是InvocationHandler接口的实现，该类的wrap方法可用于生成代理对象</li>
+</ul>
+<p><strong>2. Plugin.wrap方法</strong>: 传入参数为当前要被代理的对象，及拦截器。具体的代理内容为其invoke方法执行的东西<br><img src="\cttImages\1573998103846.png" alt="1573998103846"></p>
+<p>这里判断所执行的方法是否为拦截方法，是则执行拦截器中的方法，不是则不拦截，调用其本身</p>
+<h4 id="2-2-相关配置"><a href="#2-2-相关配置" class="headerlink" title="2.2. 相关配置"></a>2.2. 相关配置</h4><p><img src="\cttImages\1573998126255.png" alt="1573998126255"> </p>
+<blockquote>
+<p>当运行的时候，有调用到该方法即可以使用了</p>
+</blockquote>
+<h2 id="二-插件原理"><a href="#二-插件原理" class="headerlink" title="二. 插件原理"></a>二. 插件原理</h2><h3 id="1-插件初始化"><a href="#1-插件初始化" class="headerlink" title="1. 插件初始化"></a>1. 插件初始化</h3><p>创建Configuration对象时，调用pluginElement方法读取plugin标签内容</p>
+<p><strong>源码图</strong><br><img src="\cttImages\1573998151449.png" alt="1573998151449"></p>
+<p><strong>说明</strong></p>
+<ul>
+<li>通过反射生成插件实例，并调用了setProperties</li>
+<li>使用List保存生成插件实例</li>
+</ul>
+<blockquote>
+<p>这里setProperties方法，使用了模版方法设计模式</p>
+</blockquote>
+<h3 id="2-拦截范围"><a href="#2-拦截范围" class="headerlink" title="2. 拦截范围"></a>2. 拦截范围</h3><blockquote>
+<p>提供的拦截范围为: 四大对象</p>
+</blockquote>
+<p><strong>1. 如何拦截</strong>: 以Executor为例，其余对象均相同</p>
+<p><img src="\cttImages\1573998170093.png" alt="1573998170093"><br><img src="\cttImages\1573998189792.png" alt="1573998189792"></p>
+<p>这里使用到了责任链模式，MyBatis的责任链由Configuration中的InterceptorChain对象去定义的。这里Executor对象不断被链中的插件进行代理(可以代理很多层)</p>
+<blockquote>
+<p>InterceptorChain类十分简单，可以去看看源码，这里就不贴了</p>
+</blockquote>
+<h2 id="三-插件的常用工具类"><a href="#三-插件的常用工具类" class="headerlink" title="三. 插件的常用工具类"></a>三. 插件的常用工具类</h2><blockquote>
+<p>没具体看，有个印象即可</p>
+</blockquote>
+<p><strong>MetaObject</strong></p>
+<p>四大对象提供给我们的public设置参数的方法很少，难以通过自身得到相关的属性信息，我们可以通过MetaObject这个工具类来读取或修改这些重要对象的属性</p>
+<p><strong>三个常用方法:</strong></p>
+<ul>
+<li>SystemMetaObejct.forObject(Object obj)，用于包装对象<br>(forObject 并不是太清楚)</li>
+<li>Object getValue(String name)，用于获取对象属性值</li>
+<li>void setValue(String name，Object value)，用于修改对象属性值</li>
+</ul>
+<h2 id="四-插件总结"><a href="#四-插件总结" class="headerlink" title="四. 插件总结"></a>四. 插件总结</h2><p><img src="\cttImages\1573998210784.png" alt="1573998210784"> </p>
+]]></content>
+      <categories>
+        <category>源码分析</category>
+        <category>mybatis</category>
+      </categories>
+  </entry>
+  <entry>
+    <title>源码分析 mybatis SQL执行流程及参数绑定过程</title>
+    <url>/2019/02/27/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%20mybatis%20SQL%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B%E5%8F%8A%E5%8F%82%E6%95%B0%E7%BB%91%E5%AE%9A%E8%BF%87%E7%A8%8B/</url>
+    <content><![CDATA[<blockquote>
+<p>持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo<br>研究mybatis，即</p>
+<ol>
+<li>mybatis怎么读取配置文件创建SqlSessionFactory</li>
+<li>SqlSession运行过程</li>
+</ol>
+</blockquote>
+<p><strong>这里更多探究的是SqlSession运行过程</strong></p>
+<a id="more"></a>
+<h1 id="第一点-mybatis-源码分析–sql大致执行流程"><a href="#第一点-mybatis-源码分析–sql大致执行流程" class="headerlink" title="第一点 - mybatis 源码分析–sql大致执行流程"></a>第一点 - mybatis 源码分析–sql大致执行流程</h1><p>[TOC]</p>
+<h2 id="一-准备"><a href="#一-准备" class="headerlink" title="一.准备"></a>一.准备</h2><h3 id="1-映射器组成"><a href="#1-映射器组成" class="headerlink" title="1. 映射器组成"></a>1. 映射器组成</h3><ul>
+<li>MappedStatement，用于保存映射器的一个节点(select|insert|delete|update),包括许多配置的sql、sql的id，缓存信息等</li>
+<li>SqlSource，提供BoundSql对象，是MappedStatement的属性。负责根据用户传递的parameterObject，动态地生成SQL语句，将信息封装到BoundSql对象中，并返回</li>
+<li><p>BoundSql，表示动态生成的SQL语句以及相应的参数信息。常用属性:SQL、parameterObject、parameterMappings</p>
+<ul>
+<li><p>parameterObject为传入的参数本身</p>
+</li>
+<li><p>parameterMappings，它是一个List，装parameterMapping对象，包括参数属性，名称，表达式，javaType，jdbcType、typeHandler等信息</p>
+</li>
+<li><p>sql，既是写在映射器中的一条SQL</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="2-SqlSession四大对象"><a href="#2-SqlSession四大对象" class="headerlink" title="2.SqlSession四大对象"></a>2.SqlSession四大对象</h3><p>Mapper执行过程是通过Executor、StatementHandler、ParameterHandler、ResultHandler来完成数据库操作和结果返回的</p>
+<ul>
+<li>Executor 执行器，调度StatementHandler、ParameterHandler、ResultHandler等来执行对应SQL</li>
+<li>StatementHandler 数据库会话器，使用数据库的Statement、PreparedStatement执行操作，核心</li>
+<li>ParameterHandler 参数处理器，用于SQL对参数的处理</li>
+<li>ResultHandler 结果处理器，对数据集的封装返回</li>
+</ul>
+<h2 id="二-SqlSession运行过程"><a href="#二-SqlSession运行过程" class="headerlink" title="二.SqlSession运行过程"></a>二.SqlSession运行过程</h2><p><strong>SqlSession用途</strong></p>
+<ol>
+<li>获取映射器</li>
+<li>直接通过命名信息去执行SQL返回结果<br> 推荐使用映射器+xml方式</li>
+</ol>
+<h3 id="1-映射器动态代理对象执行过程"><a href="#1-映射器动态代理对象执行过程" class="headerlink" title="1. 映射器动态代理对象执行过程"></a>1. 映射器动态代理对象执行过程</h3><p>调用SqlSession中的getMapper方法，传入类对象。会通过类对象获得对应的MapperProxyFactory，构建实例，动态代理MapperProxy为通知类。生成动态代理对象，代理方法放到MapperProxy中<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MapperProxy</span>&lt;<span class="title">T</span>&gt; <span class="keyword">implements</span> <span class="title">InvocationHandler</span>, <span class="title">Serializable</span> </span>&#123;</span><br><span class="line"><span class="function"><span class="keyword">public</span> Object <span class="title">invoke</span><span class="params">(Object proxy, Method method, Object[] args)</span> <span class="keyword">throws</span> Throwable </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (Object<span class="class">.<span class="keyword">class</span>.<span class="title">equals</span>(<span class="title">method</span>.<span class="title">getDeclaringClass</span>())) </span>&#123;</span><br><span class="line">                <span class="keyword">return</span> method.invoke(<span class="keyword">this</span>, args);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">this</span>.isDefaultMethod(method)) &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">this</span>.invokeDefaultMethod(proxy, method, args);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable var5) &#123;</span><br><span class="line">            <span class="keyword">throw</span> ExceptionUtil.unwrapThrowable(var5);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        MapperMethod mapperMethod = <span class="keyword">this</span>.cachedMapperMethod(method);</span><br><span class="line">        <span class="keyword">return</span> mapperMethod.execute(<span class="keyword">this</span>.sqlSession, args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>判断，如果是接口，则调用下面的方法，判断如果是默认的方法，如toString等方法，则直接调用。生成MapperMethod方法对象，执行该对象的execute方法传入sqlSession和当前参数，在该execute中进行具体的调用</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Object <span class="title">execute</span><span class="params">(SqlSession sqlSession, Object[] args)</span> </span>&#123;</span><br><span class="line">        Object param;</span><br><span class="line">        Object result;</span><br><span class="line">        <span class="keyword">switch</span>(<span class="keyword">this</span>.command.getType()) &#123;</span><br><span class="line">        <span class="keyword">case</span> SELECT:</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">this</span>.method.returnsVoid() &amp;&amp; <span class="keyword">this</span>.method.hasResultHandler()) &#123;</span><br><span class="line">                <span class="keyword">this</span>.executeWithResultHandler(sqlSession, args);</span><br><span class="line">                result = <span class="keyword">null</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">this</span>.method.returnsMany()) &#123;</span><br><span class="line">                result = <span class="keyword">this</span>.executeForMany(sqlSession, args);</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">this</span>.method.returnsMap()) &#123;</span><br><span class="line">                result = <span class="keyword">this</span>.executeForMap(sqlSession, args);</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="keyword">this</span>.method.returnsCursor()) &#123;</span><br><span class="line">                result = <span class="keyword">this</span>.executeForCursor(sqlSession, args);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                param = <span class="keyword">this</span>.method.convertArgsToSqlCommandParam(args);</span><br><span class="line">                result = sqlSession.selectOne(<span class="keyword">this</span>.command.getName(), param);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:<span class="comment">//抛错</span></span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"Unknown execution method for: "</span> + <span class="keyword">this</span>.command.getName());</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">//抛错</span></span><br><span class="line">        <span class="keyword">if</span> (result == <span class="keyword">null</span> &amp;&amp; <span class="keyword">this</span>.method.getReturnType().isPrimitive() &amp;&amp; !<span class="keyword">this</span>.method.returnsVoid()) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"Mapper method '"</span> + <span class="keyword">this</span>.command.getName() + <span class="string">" attempted to return null from a method with a primitive return type ("</span> + <span class="keyword">this</span>.method.getReturnType() + <span class="string">")."</span>);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> result;<span class="comment">//返回sql的执行结果</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>通过内部SqlCommand中的type(xml中的标签类型)来判断执行那一段方法，如为查询语句时即SELECT，根据返回类型来判断具体执行哪个方法<br><strong>举例:执行查询语句，调用到executeForMany方法</strong></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MapperMethod</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> MapperMethod.SqlCommand command;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> MapperMethod.MethodSignature method;</span><br><span class="line"><span class="keyword">private</span> &lt;E&gt; <span class="function">Object <span class="title">executeForMany</span><span class="params">(SqlSession sqlSession, Object[] args)</span> </span>&#123;</span><br><span class="line">        Object param = <span class="keyword">this</span>.method.convertArgsToSqlCommandParam(args);</span><br><span class="line">        List result;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.method.hasRowBounds()) &#123;</span><br><span class="line">            RowBounds rowBounds = <span class="keyword">this</span>.method.extractRowBounds(args);</span><br><span class="line">            result = sqlSession.selectList(<span class="keyword">this</span>.command.getName(), param, rowBounds);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            result = sqlSession.selectList(<span class="keyword">this</span>.command.getName(), param);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.method.getReturnType().isAssignableFrom(result.getClass())) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.method.getReturnType().isArray() ? <span class="keyword">this</span>.convertToArray(result) : <span class="keyword">this</span>.convertToDeclaredCollection(sqlSession.getConfiguration(), result);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> result;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>最后通过SqlSession调用</strong> ，通过MapperMethod的SqlCommand属性调用getName方法获得接口名+方法名的调用，探究的关键就在于MapperMethod在创建的时候就在SqlCommand的name中初始化好了名称，具体实现如下，看MapperProxy的invoke中的MapperMethod mapperMethod = this.cachedMapperMethod(method);<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> MapperMethod <span class="title">cachedMapperMethod</span><span class="params">(Method method)</span> </span>&#123;</span><br><span class="line">        MapperMethod mapperMethod = (MapperMethod)<span class="keyword">this</span>.methodCache.get(method);</span><br><span class="line">        <span class="keyword">if</span> (mapperMethod == <span class="keyword">null</span>) &#123;</span><br><span class="line">            mapperMethod = <span class="keyword">new</span> MapperMethod(<span class="keyword">this</span>.mapperInterface, method, <span class="keyword">this</span>.sqlSession.getConfiguration());</span><br><span class="line">            <span class="keyword">this</span>.methodCache.put(method, mapperMethod);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> mapperMethod;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">//MapperMethod的构造</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">MapperMethod</span><span class="params">(Class&lt;?&gt; mapperInterface, Method method, Configuration config)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.command = <span class="keyword">new</span> MapperMethod.SqlCommand(config, mapperInterface, method);</span><br><span class="line">        <span class="keyword">this</span>.method = <span class="keyword">new</span> MapperMethod.MethodSignature(config, mapperInterface, method);</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">//SqlCommand的构造</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">SqlCommand</span><span class="params">(Configuration configuration, Class&lt;?&gt; mapperInterface, Method method)</span> </span>&#123;</span><br><span class="line">            String methodName = method.getName();</span><br><span class="line">            Class&lt;?&gt; declaringClass = method.getDeclaringClass();</span><br><span class="line">            MappedStatement ms = <span class="keyword">this</span>.resolveMappedStatement(mapperInterface, methodName, declaringClass, configuration);</span><br><span class="line">            <span class="keyword">if</span> (ms == <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="keyword">if</span> (method.getAnnotation(Flush<span class="class">.<span class="keyword">class</span>) </span>== <span class="keyword">null</span>) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"Invalid bound statement (not found): "</span> + mapperInterface.getName() + <span class="string">"."</span> + methodName);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">this</span>.name = <span class="keyword">null</span>;</span><br><span class="line">                <span class="keyword">this</span>.type = SqlCommandType.FLUSH;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.name = ms.getId();<span class="comment">//这里将MappedStatement中的id属性进行赋值给name：接口名+方法名</span></span><br><span class="line">                <span class="keyword">this</span>.type = ms.getSqlCommandType();</span><br><span class="line">                <span class="keyword">if</span> (<span class="keyword">this</span>.type == SqlCommandType.UNKNOWN) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"Unknown execution method for: "</span> + <span class="keyword">this</span>.name);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure></p>
+<p>在SqlCommand中，两个存放的信息，name 负责存放调用的目标方法名  ，type 负责存放SQL语句的类型（SELECT|INSERT|UPDATE等）。</p>
+<p>通过SqlCommand构造函数可以看到，<code>this.name = ms.getId();</code>其对name进行了赋值，值为对应xml文件中对应方法的id，怎么找到的这个MappedStatement的?<br>看这行代码<code>MappedStatement ms = this.resolveMappedStatement(mapperInterface, methodName, declaringClass, configuration);</code><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> MappedStatement <span class="title">resolveMappedStatement</span><span class="params">(Class&lt;?&gt; mapperInterface, String methodName, Class&lt;?&gt; declaringClass, Configuration configuration)</span> </span>&#123;</span><br><span class="line">            String statementId = mapperInterface.getName() + <span class="string">"."</span> + methodName;</span><br><span class="line">            <span class="keyword">if</span> (configuration.hasStatement(statementId)) &#123;</span><br><span class="line">                <span class="keyword">return</span> configuration.getMappedStatement(statementId);</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (mapperInterface.equals(declaringClass)) &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                Class[] var6 = mapperInterface.getInterfaces();</span><br><span class="line">                <span class="keyword">int</span> var7 = var6.length;</span><br><span class="line">                <span class="keyword">for</span>(<span class="keyword">int</span> var8 = <span class="number">0</span>; var8 &lt; var7; ++var8) &#123;</span><br><span class="line">                    Class&lt;?&gt; superInterface = var6[var8];</span><br><span class="line">                    <span class="keyword">if</span> (declaringClass.isAssignableFrom(superInterface)) &#123;</span><br><span class="line">                        MappedStatement ms = <span class="keyword">this</span>.resolveMappedStatement(superInterface, methodName, declaringClass, configuration);</span><br><span class="line">                        <span class="keyword">if</span> (ms != <span class="keyword">null</span>) &#123;</span><br><span class="line">                            <span class="keyword">return</span> ms;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>可以看到，mybaits将调用的接口名与方法名的字符串，在MappedStatements中找对应的xml中对应的MappedStatement结点，从而调用到对应的xml写的sql</p>
+<h3 id="2-底层执行过程"><a href="#2-底层执行过程" class="headerlink" title="2. 底层执行过程"></a>2. 底层执行过程</h3><p>在创建SqlSession时，已经创建了Executor<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSession <span class="title">openSession</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>.openSessionFromDataSource(<span class="keyword">this</span>.configuration.getDefaultExecutorType(), (TransactionIsolationLevel)<span class="keyword">null</span>, <span class="keyword">false</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>具体的创建方法如下:<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Executor <span class="title">newExecutor</span><span class="params">(Transaction transaction, ExecutorType executorType)</span> </span>&#123;</span><br><span class="line">        executorType = executorType == <span class="keyword">null</span> ? <span class="keyword">this</span>.defaultExecutorType : executorType;</span><br><span class="line">        executorType = executorType == <span class="keyword">null</span> ? ExecutorType.SIMPLE : executorType;</span><br><span class="line">        Object executor;</span><br><span class="line">        <span class="keyword">if</span> (ExecutorType.BATCH == executorType) &#123;</span><br><span class="line">            executor = <span class="keyword">new</span> BatchExecutor(<span class="keyword">this</span>, transaction);</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (ExecutorType.REUSE == executorType) &#123;</span><br><span class="line">            executor = <span class="keyword">new</span> ReuseExecutor(<span class="keyword">this</span>, transaction);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            executor = <span class="keyword">new</span> SimpleExecutor(<span class="keyword">this</span>, transaction);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.cacheEnabled) &#123;</span><br><span class="line">            executor = <span class="keyword">new</span> CachingExecutor((Executor)executor);</span><br><span class="line">        &#125;</span><br><span class="line">        Executor executor = (Executor)<span class="keyword">this</span>.interceptorChain.pluginAll(executor);</span><br><span class="line">        <span class="keyword">return</span> executor;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>已分析SimpleExecutor为例，上面我们看到调用映射器中的查询方法最终调用到SqlSession的查询selectList<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> &lt;E&gt; <span class="function">List&lt;E&gt; <span class="title">selectList</span><span class="params">(String statement, Object parameter, RowBounds rowBounds)</span> </span>&#123;</span><br><span class="line">        List var5;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            MappedStatement ms = <span class="keyword">this</span>.configuration.getMappedStatement(statement);</span><br><span class="line">            var5 = <span class="keyword">this</span>.executor.query(ms, <span class="keyword">this</span>.wrapCollection(parameter), rowBounds, Executor.NO_RESULT_HANDLER);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var9) &#123;</span><br><span class="line">            <span class="keyword">throw</span> ExceptionFactory.wrapException(<span class="string">"Error querying database.  Cause: "</span> + var9, var9);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            ErrorContext.instance().reset();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> var5;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>这里获取该名字对应MappedStatement结点，执行executor的query方法，最终调用到真正的执行查询的方法doQuery<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> &lt;E&gt; <span class="function">List&lt;E&gt; <span class="title">doQuery</span><span class="params">(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql)</span> <span class="keyword">throws</span> SQLException </span>&#123;</span><br><span class="line">        Statement stmt = <span class="keyword">null</span>;</span><br><span class="line">        List var9;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Configuration configuration = ms.getConfiguration();</span><br><span class="line">            StatementHandler handler = configuration.newStatementHandler(<span class="keyword">this</span>.wrapper, ms, parameter, rowBounds, resultHandler, boundSql);</span><br><span class="line">            stmt = <span class="keyword">this</span>.prepareStatement(handler, ms.getStatementLog());</span><br><span class="line">            var9 = handler.query(stmt, resultHandler);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.closeStatement(stmt);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> var9;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>可以看到，创建一个数据库会话器StatementHandler，执行StatementHandler的prepareStatement方法，进行初始化操作<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> Statement <span class="title">prepareStatement</span><span class="params">(StatementHandler handler, Log statementLog)</span> <span class="keyword">throws</span> SQLException </span>&#123;</span><br><span class="line">        Connection connection = <span class="keyword">this</span>.getConnection(statementLog);</span><br><span class="line">        Statement stmt = handler.prepare(connection, <span class="keyword">this</span>.transaction.getTimeout());</span><br><span class="line">        handler.parameterize(stmt);</span><br><span class="line">        <span class="keyword">return</span> stmt;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">//prepare方法</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Statement <span class="title">prepare</span><span class="params">(Connection connection, Integer transactionTimeout)</span> <span class="keyword">throws</span> SQLException </span>&#123;</span><br><span class="line">        ErrorContext.instance().sql(<span class="keyword">this</span>.boundSql.getSql());</span><br><span class="line">        Statement statement = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            statement = <span class="keyword">this</span>.instantiateStatement(connection);</span><br><span class="line">            <span class="keyword">this</span>.setStatementTimeout(statement, transactionTimeout);</span><br><span class="line">            <span class="keyword">this</span>.setFetchSize(statement);</span><br><span class="line">            <span class="keyword">return</span> statement;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (SQLException var5) &#123;</span><br><span class="line">            <span class="keyword">this</span>.closeStatement(statement);</span><br><span class="line">            <span class="keyword">throw</span> var5;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var6) &#123;</span><br><span class="line">            <span class="keyword">this</span>.closeStatement(statement);</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> ExecutorException(<span class="string">"Error preparing statement.  Cause: "</span> + var6, var6);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">//parameterize方法</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parameterize</span><span class="params">(Statement statement)</span> <span class="keyword">throws</span> SQLException </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.parameterHandler.setParameters((PreparedStatement)statement);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>调用prepare方法设置最大行数、超时时间等基本操作，parameterize方法调用参数处理器绑定参数，执行StatementHandler的prepareStatement方法后调用，Executor的query方法<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> &lt;E&gt; <span class="function">List&lt;E&gt; <span class="title">query</span><span class="params">(Statement statement, ResultHandler resultHandler)</span> <span class="keyword">throws</span> SQLException </span>&#123;</span><br><span class="line">        String sql = <span class="keyword">this</span>.boundSql.getSql();</span><br><span class="line">        statement.execute(sql);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>.resultSetHandler.handleResultSets(statement);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>执行对应的语句，并调用结果处理器返回参数</p>
+<h2 id="三-总结"><a href="#三-总结" class="headerlink" title="三.总结"></a>三.总结</h2><p>在映射器+xml调用中</p>
+<ol>
+<li>获取映射器，getMapper通过动态代理，获得代理对象</li>
+<li>在调用相关接口方法时，拦截调用相关方法，用接口名+方法名，在MapperStatements中查找对应的id的MapperStatement，有则，判断该id的xml片断的sql标签，调用sqlsession的对应方法，将接口名+方法名，参数传入</li>
+<li>调用Executor的query/update方法，创建数据库会话器，调用prepare、parameterize(调用参数处理器绑定参数)，query/update(query需要返回封装结果，调用结果处理器。update中返回处理行数，直接返回int类型)</li>
+</ol>
+<h1 id="第二点-参数处理过程"><a href="#第二点-参数处理过程" class="headerlink" title="第二点 - 参数处理过程"></a>第二点 - 参数处理过程</h1><h2 id="一-完成参数索引与参数名之间的对应"><a href="#一-完成参数索引与参数名之间的对应" class="headerlink" title="一.完成参数索引与参数名之间的对应"></a>一.完成参数索引与参数名之间的对应</h2><p>在动态代理中，通过cachedMapperMethod创建MapperMethod，构建了MethodSignature对象，其中有一个属性为paramNameResolver<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> MapperMethod <span class="title">cachedMapperMethod</span><span class="params">(Method method)</span> </span>&#123;</span><br><span class="line">        MapperMethod mapperMethod = (MapperMethod)<span class="keyword">this</span>.methodCache.get(method);</span><br><span class="line">        <span class="keyword">if</span> (mapperMethod == <span class="keyword">null</span>) &#123;</span><br><span class="line">            mapperMethod = <span class="keyword">new</span> MapperMethod(<span class="keyword">this</span>.mapperInterface, method, <span class="keyword">this</span>.sqlSession.getConfiguration());</span><br><span class="line">            <span class="keyword">this</span>.methodCache.put(method, mapperMethod);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> mapperMethod;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">//MapperMethod的构造</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">MapperMethod</span><span class="params">(Class&lt;?&gt; mapperInterface, Method method, Configuration config)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.command = <span class="keyword">new</span> MapperMethod.SqlCommand(config, mapperInterface, method);</span><br><span class="line">        <span class="keyword">this</span>.method = <span class="keyword">new</span> MapperMethod.MethodSignature(config, mapperInterface, method);</span><br><span class="line">    &#125;</span><br><span class="line"><span class="comment">//MethodSignature初始化</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">MethodSignature</span><span class="params">(Configuration configuration, Class&lt;?&gt; mapperInterface, Method method)</span> </span>&#123;</span><br><span class="line">            Type resolvedReturnType = TypeParameterResolver.resolveReturnType(method, mapperInterface);</span><br><span class="line">            <span class="keyword">if</span> (resolvedReturnType <span class="keyword">instanceof</span> Class) &#123;</span><br><span class="line">                <span class="keyword">this</span>.returnType = (Class)resolvedReturnType;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (resolvedReturnType <span class="keyword">instanceof</span> ParameterizedType) &#123;</span><br><span class="line">                <span class="keyword">this</span>.returnType = (Class)((ParameterizedType)resolvedReturnType).getRawType();</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">this</span>.returnType = method.getReturnType();</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">this</span>.returnsVoid = Void.TYPE.equals(<span class="keyword">this</span>.returnType);</span><br><span class="line">            <span class="keyword">this</span>.returnsMany = configuration.getObjectFactory().isCollection(<span class="keyword">this</span>.returnType) || <span class="keyword">this</span>.returnType.isArray();</span><br><span class="line">            <span class="keyword">this</span>.returnsCursor = Cursor<span class="class">.<span class="keyword">class</span>.<span class="title">equals</span>(<span class="title">this</span>.<span class="title">returnType</span>)</span>;</span><br><span class="line">            <span class="keyword">this</span>.mapKey = <span class="keyword">this</span>.getMapKey(method);</span><br><span class="line">            <span class="keyword">this</span>.returnsMap = <span class="keyword">this</span>.mapKey != <span class="keyword">null</span>;</span><br><span class="line">            <span class="keyword">this</span>.rowBoundsIndex = <span class="keyword">this</span>.getUniqueParamIndex(method, RowBounds<span class="class">.<span class="keyword">class</span>)</span>;</span><br><span class="line">            <span class="keyword">this</span>.resultHandlerIndex = <span class="keyword">this</span>.getUniqueParamIndex(method, ResultHandler<span class="class">.<span class="keyword">class</span>)</span>;</span><br><span class="line">            <span class="keyword">this</span>.paramNameResolver = <span class="keyword">new</span> ParamNameResolver(configuration, method);</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure></p>
+<p>查看paramNameResolver初始化<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ParamNameResolver</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String GENERIC_NAME_PREFIX = <span class="string">"param"</span>;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> SortedMap&lt;Integer, String&gt; names;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> hasParamAnnotation;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">ParamNameResolver</span><span class="params">(Configuration config, Method method)</span> </span>&#123;</span><br><span class="line">        <span class="comment">//存储目标方法的参数对应的Class对象</span></span><br><span class="line">        Class&lt;?&gt;[] paramTypes = method.getParameterTypes();</span><br><span class="line">        <span class="comment">//存储目标方法的注解对象数组,每一个方法的参数都有一个注解数组</span></span><br><span class="line">        Annotation[][] paramAnnotations = method.getParameterAnnotations();</span><br><span class="line">        SortedMap&lt;Integer, String&gt; map = <span class="keyword">new</span> TreeMap();</span><br><span class="line">        <span class="comment">//存储目标方法的参数个数</span></span><br><span class="line">        <span class="keyword">int</span> paramCount = paramAnnotations.length;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span>(<span class="keyword">int</span> paramIndex = <span class="number">0</span>; paramIndex &lt; paramCount; ++paramIndex) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!isSpecialParameter(paramTypes[paramIndex])) &#123;</span><br><span class="line">                String name = <span class="keyword">null</span>;</span><br><span class="line">                Annotation[] var9 = paramAnnotations[paramIndex];</span><br><span class="line">                <span class="keyword">int</span> var10 = var9.length;</span><br><span class="line">                <span class="keyword">for</span>(<span class="keyword">int</span> var11 = <span class="number">0</span>; var11 &lt; var10; ++var11) &#123;</span><br><span class="line">                    Annotation annotation = var9[var11];</span><br><span class="line">                    <span class="keyword">if</span> (annotation <span class="keyword">instanceof</span> Param) &#123;</span><br><span class="line">                        <span class="keyword">this</span>.hasParamAnnotation = <span class="keyword">true</span>;</span><br><span class="line">                        name = ((Param)annotation).value();</span><br><span class="line">                        <span class="keyword">break</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (name == <span class="keyword">null</span>) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (config.isUseActualParamName()) &#123;</span><br><span class="line">                        name = <span class="keyword">this</span>.getActualParamName(method, paramIndex);</span><br><span class="line">                    &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="keyword">if</span> (name == <span class="keyword">null</span>) &#123;</span><br><span class="line">                        name = String.valueOf(map.size());</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                map.put(paramIndex, name);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>.names = Collections.unmodifiableSortedMap(map);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<ol>
+<li>isSpecialParameter(paramTypes[paramIndex])判断是否是RowBounds和ResultHandler特殊类型。如果true,则跳过. </li>
+<li>判断每一个注解是否是Param注解<ol>
+<li>true,则hasParamAnnotation赋值为true,表示该方法有@Param注解,然后直接把Param注解的value值赋值给name </li>
+<li>false，没有使用@Param注解,则判断是否配置中开启了useActualParamName</li>
+</ol>
+</li>
+</ol>
+<ul>
+<li>true,则调用getActualParamName方法,并通过ParamNameUtil工具类获取目标方法的参数名,再把参数名存储到List中,接着根据传入的索引获取对应的参数名.然后把参数索引和参数名存放到map中.</li>
+<li>false,那么就会使用参数索引作为name.</li>
+</ul>
+<p>当所有参数都判断之后,通过Collections.unmodifiableSortedMap(map)返回一个只读的Map容器赋值给names,同样存放着参数索引和参数名的映射关系。此时MethodSignature初始化完毕</p>
+<blockquote>
+<p>例子：</p>
+<ul>
+<li>当useActualParamName()为true时:<br>0 -&gt; “id”<br>1 -&gt; “name”<br>2 -&gt; “gender”</li>
+<li>当useActualParamName()为false时:<br>0 -&gt; “id”<br>1 -&gt; “name”<br>2 -&gt; 2</li>
+</ul>
+</blockquote>
+<h2 id="二-使用对应关系，绑定参数名与具体参数对象"><a href="#二-使用对应关系，绑定参数名与具体参数对象" class="headerlink" title="二.使用对应关系，绑定参数名与具体参数对象"></a>二.使用对应关系，绑定参数名与具体参数对象</h2><p>在之前的executeForMany中有这样的一个方法<br><code>Object param = this.method.convertArgsToSqlCommandParam(args);</code>具体代码如下</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MapperMethod</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> MapperMethod.SqlCommand command;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> MapperMethod.MethodSignature method;</span><br><span class="line"><span class="keyword">private</span> &lt;E&gt; <span class="function">Object <span class="title">executeForMany</span><span class="params">(SqlSession sqlSession, Object[] args)</span> </span>&#123;</span><br><span class="line">        Object param = <span class="keyword">this</span>.method.convertArgsToSqlCommandParam(args);</span><br><span class="line">        List result;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.method.hasRowBounds()) &#123;</span><br><span class="line">            RowBounds rowBounds = <span class="keyword">this</span>.method.extractRowBounds(args);</span><br><span class="line">            result = sqlSession.selectList(<span class="keyword">this</span>.command.getName(), param, rowBounds);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            result = sqlSession.selectList(<span class="keyword">this</span>.command.getName(), param);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.method.getReturnType().isAssignableFrom(result.getClass())) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.method.getReturnType().isArray() ? <span class="keyword">this</span>.convertToArray(result) : <span class="keyword">this</span>.convertToDeclaredCollection(sqlSession.getConfiguration(), result);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> result;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">//MapperMethod的方法convertArgsToSqlCommandParam</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Object <span class="title">convertArgsToSqlCommandParam</span><span class="params">(Object[] args)</span> </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.paramNameResolver.getNamedParams(args);</span><br><span class="line">        &#125;</span><br><span class="line"><span class="comment">//ParamNameResolver的方法getNamedParams</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Object <span class="title">getNamedParams</span><span class="params">(Object[] args)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">int</span> paramCount = <span class="keyword">this</span>.names.size();</span><br><span class="line">        <span class="keyword">if</span> (args != <span class="keyword">null</span> &amp;&amp; paramCount != <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!<span class="keyword">this</span>.hasParamAnnotation &amp;&amp; paramCount == <span class="number">1</span>) &#123;</span><br><span class="line">                <span class="keyword">return</span> args[(Integer)<span class="keyword">this</span>.names.firstKey()];</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                Map&lt;String, Object&gt; param = <span class="keyword">new</span> ParamMap();</span><br><span class="line">                <span class="keyword">int</span> i = <span class="number">0</span>;</span><br><span class="line">                <span class="keyword">for</span>(Iterator var5 = <span class="keyword">this</span>.names.entrySet().iterator(); var5.hasNext(); ++i) &#123;</span><br><span class="line">                    Entry&lt;Integer, String&gt; entry = (Entry)var5.next();</span><br><span class="line">                    param.put(entry.getValue(), args[(Integer)entry.getKey()]);</span><br><span class="line">                    String genericParamName = <span class="string">"param"</span> + String.valueOf(i + <span class="number">1</span>);</span><br><span class="line">                    <span class="keyword">if</span> (!<span class="keyword">this</span>.names.containsValue(genericParamName)) &#123;</span><br><span class="line">                        param.put(genericParamName, args[(Integer)entry.getKey()]);</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">return</span> param;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<ol>
+<li>遍历Map容器(即之前参数索引与参数名对应的map)names,以value作为key和args数组对应索引的值作为value存储到Map容器param中</li>
+<li>根据GENERIC_NAME_PREFIX常量即”param”和当前的索引拼装成新的字符串,即param1,param2,…,paramN.然后和args数组里对应索引的值存储到Map容器param中</li>
+</ol>
+<p>参考文章：<a href="https://blog.csdn.net/chenruicsdn/article/details/81370219，这篇博文有一定的错误" target="_blank" rel="noopener">https://blog.csdn.net/chenruicsdn/article/details/81370219，这篇博文有一定的错误</a></p>
+]]></content>
+  </entry>
+  <entry>
+    <title>源码分析 mybatis 读取配置文件</title>
+    <url>/2019/01/27/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%20mybatis%20%E8%AF%BB%E5%8F%96%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6/</url>
+    <content><![CDATA[<blockquote>
+<p>持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo<br>研究mybatis，即</p>
+<ol>
+<li>mybatis怎么读取配置文件创建SqlSessionFactory</li>
+<li>SqlSession运行过程</li>
+</ol>
+</blockquote>
+<p><strong>这里更多探究的是mybatis怎么读取配置文件创建SqlSessionFactory</strong></p>
+<a id="more"></a>
+<p>[TOC]</p>
+<h2 id="一-简单执行流程"><a href="#一-简单执行流程" class="headerlink" title="一.简单执行流程"></a>一.简单执行流程</h2><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;<span class="comment">//执行如下代码</span></span><br><span class="line">        String resource= <span class="string">"mybatis.cfg.xml"</span>;</span><br><span class="line">        InputStream in = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            in = Resources.getResourceAsStream(resource);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        SqlSessionFactory sqlSessionFactory = <span class="keyword">new</span> SqlSessionFactoryBuilder().build(in);</span><br><span class="line">        SqlSession sqlSession = sqlSessionFactory.openSession();</span><br><span class="line">        sqlSession.close();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>第一步，mybatis运行，创建SqlSessionFactoryBuilder工厂对象，调用build方法，读取配置文件信息存储在Configuration对象中，并创建SqlSessionFactory</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSessionFactory <span class="title">build</span><span class="params">(InputStream inputStream, String environment, Properties properties)</span> </span>&#123;</span><br><span class="line">        SqlSessionFactory var5;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            XMLConfigBuilder parser = <span class="keyword">new</span> XMLConfigBuilder(inputStream, environment, properties);</span><br><span class="line">            var5 = <span class="keyword">this</span>.build(parser.parse());<span class="comment">//通过XML解析器解析，获得DefaultSqlSession对象</span></span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var14) &#123;</span><br><span class="line">            <span class="keyword">throw</span> ExceptionFactory.wrapException(<span class="string">"Error building SqlSession."</span>, var14);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            ErrorContext.instance().reset();</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                inputStream.close();</span><br><span class="line">            &#125; <span class="keyword">catch</span> (IOException var13) &#123;</span><br><span class="line">                ;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> var5;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>第二步.创建SqlSession，赋予属性，从上一步获得的Configuration对象中，得到Environment环境信息，创建事务工厂，根据传入的事务隔离级别、是否自动提交的参数，创建事务对象。再根据事务、配置对象的执行器类型创建执行器对象，通过执行器对象创建SqlSession<br><strong>即事务工厂–&gt;事务–&gt;执行器–&gt;SqlSession</strong></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSession <span class="title">openSession</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>.openSessionFromDataSource(<span class="keyword">this</span>.configuration.getDefaultExecutorType(), (TransactionIsolationLevel)<span class="keyword">null</span>, <span class="keyword">false</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> SqlSession <span class="title">openSessionFromDataSource</span><span class="params">(ExecutorType execType, TransactionIsolationLevel level, <span class="keyword">boolean</span> autoCommit)</span> </span>&#123;</span><br><span class="line">        Transaction tx = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">        DefaultSqlSession var8;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Environment environment = <span class="keyword">this</span>.configuration.getEnvironment();<span class="comment">//读取配置文件中的环境信息</span></span><br><span class="line">            TransactionFactory transactionFactory = <span class="keyword">this</span>.getTransactionFactoryFromEnvironment(environment);<span class="comment">//创建事务工厂</span></span><br><span class="line">            tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);<span class="comment">//根据传入的TransactionIsolationLevel、autoCommit创建事务对象</span></span><br><span class="line">            Executor executor = <span class="keyword">this</span>.configuration.newExecutor(tx, execType);<span class="comment">//根据事务、配置对象的执行器类型创建执行器对象，这里是SimpleExecutor</span></span><br><span class="line">            var8 = <span class="keyword">new</span> DefaultSqlSession(<span class="keyword">this</span>.configuration, executor, autoCommit);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var12) &#123;</span><br><span class="line">            <span class="keyword">this</span>.closeTransaction(tx);</span><br><span class="line">            <span class="keyword">throw</span> ExceptionFactory.wrapException(<span class="string">"Error opening session.  Cause: "</span> + var12, var12);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            ErrorContext.instance().reset();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> var8;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>dirty:true  sql语句执行完毕后，事务提交,false  sql语句执行错误，事务回滚</li>
+<li>Executor;可用于创建Statement对象，依靠MapperStatement对象将赋值内容与占位符进行绑定</li>
+</ul>
+<p>第三步.SqlSession关闭</p>
+<h2 id="二-疑惑"><a href="#二-疑惑" class="headerlink" title="二.疑惑"></a>二.疑惑</h2><blockquote>
+<p><strong>mybatis有xml、注解的使用方式</strong><br><a href="https://www.cnblogs.com/shamo89/p/9960370.html" target="_blank" rel="noopener">mybatis的使用方式(如果对使用方式不熟可以看这篇)</a></p>
+</blockquote>
+<p>1.对于Sql的xml是怎么被读取的、为什么xml文件名要规定一致，sql的#{ }是怎么替换的?<br>2.对于注解又是怎么读取注解中的配置的?</p>
+<h2 id="三-解决"><a href="#三-解决" class="headerlink" title="三.解决"></a>三.解决</h2><h3 id="1-第一个问题"><a href="#1-第一个问题" class="headerlink" title="1.第一个问题"></a>1.第一个问题</h3><ol>
+<li>创建SqlSessionFactory对象，关键在于这个build方法读取配置文件，并将配置信息放到Configuration对象中，进入build方法<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSessionFactory <span class="title">build</span><span class="params">(InputStream inputStream, String environment, Properties properties)</span> </span>&#123;</span><br><span class="line">        SqlSessionFactory var5;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            XMLConfigBuilder parser = <span class="keyword">new</span> XMLConfigBuilder(inputStream, environment, properties);</span><br><span class="line">            var5 = <span class="keyword">this</span>.build(parser.parse());<span class="comment">//通过XML解析器解析，获得DefaultSqlSessionFactory对象</span></span><br><span class="line">        &#125; <span class="comment">//...</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>发现其中创建了一个XML解析器，调用了parse方法，进入parse方法</p>
+<ol start="2">
+<li>parse代码如下<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Configuration <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.parsed) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Each XMLConfigBuilder can only be used once."</span>);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.parsed = <span class="keyword">true</span>;</span><br><span class="line">            <span class="keyword">this</span>.parseConfiguration(<span class="keyword">this</span>.parser.evalNode(<span class="string">"/configuration"</span>));</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.configuration;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>可以看到parse方法调用parseConfiguration找到configuration标签，读取内部内容，具体又是怎么读呢? 进入parseConfiguration方法</p>
+<ol start="3">
+<li>parseConfiguration方法如下，<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">parseConfiguration</span><span class="params">(XNode root)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.propertiesElement(root.evalNode(<span class="string">"properties"</span>));</span><br><span class="line">            Properties settings = <span class="keyword">this</span>.settingsAsProperties(root.evalNode(<span class="string">"settings"</span>));</span><br><span class="line">            <span class="keyword">this</span>.loadCustomVfs(settings);</span><br><span class="line">            <span class="keyword">this</span>.typeAliasesElement(root.evalNode(<span class="string">"typeAliases"</span>));</span><br><span class="line">            <span class="keyword">this</span>.pluginElement(root.evalNode(<span class="string">"plugins"</span>));</span><br><span class="line">            <span class="keyword">this</span>.objectFactoryElement(root.evalNode(<span class="string">"objectFactory"</span>));</span><br><span class="line">            <span class="keyword">this</span>.objectWrapperFactoryElement(root.evalNode(<span class="string">"objectWrapperFactory"</span>));</span><br><span class="line">            <span class="keyword">this</span>.reflectorFactoryElement(root.evalNode(<span class="string">"reflectorFactory"</span>));</span><br><span class="line">            <span class="keyword">this</span>.settingsElement(settings);</span><br><span class="line">            <span class="keyword">this</span>.environmentsElement(root.evalNode(<span class="string">"environments"</span>));</span><br><span class="line">            <span class="keyword">this</span>.databaseIdProviderElement(root.evalNode(<span class="string">"databaseIdProvider"</span>));</span><br><span class="line">            <span class="keyword">this</span>.typeHandlerElement(root.evalNode(<span class="string">"typeHandlers"</span>));</span><br><span class="line">            <span class="keyword">this</span>.mapperElement(root.evalNode(<span class="string">"mappers"</span>));</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var3) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Error parsing SQL Mapper Configuration. Cause: "</span> + var3, var3);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>可以看到很多见过的属性，即读取主配置文件的属性进到Configuration对象中，具体怎么读，以读取mappers为例(其下有package、mapper标签)进入mapperElement方法</p>
+<ol start="3">
+<li>mapperElement方法如下<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">mapperElement</span><span class="params">(XNode parent)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (parent != <span class="keyword">null</span>) &#123;</span><br><span class="line">            Iterator var2 = parent.getChildren().iterator();</span><br><span class="line">            <span class="keyword">while</span>(<span class="keyword">true</span>) &#123;</span><br><span class="line">                <span class="keyword">while</span>(var2.hasNext()) &#123;</span><br><span class="line">                    XNode child = (XNode)var2.next();</span><br><span class="line">                    String resource;</span><br><span class="line">                    <span class="keyword">if</span> (<span class="string">"package"</span>.equals(child.getName())) &#123;</span><br><span class="line">                        resource = child.getStringAttribute(<span class="string">"name"</span>);</span><br><span class="line">                        <span class="keyword">this</span>.configuration.addMappers(resource);</span><br><span class="line">                    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                        resource = child.getStringAttribute(<span class="string">"resource"</span>);</span><br><span class="line">                        String url = child.getStringAttribute(<span class="string">"url"</span>);</span><br><span class="line">                        String mapperClass = child.getStringAttribute(<span class="string">"class"</span>);</span><br><span class="line">                        XMLMapperBuilder mapperParser;</span><br><span class="line">                        InputStream inputStream;</span><br><span class="line">                        <span class="keyword">if</span> (resource != <span class="keyword">null</span> &amp;&amp; url == <span class="keyword">null</span> &amp;&amp; mapperClass == <span class="keyword">null</span>) &#123;</span><br><span class="line"><span class="comment">//...没截全</span></span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>该方法判断是package还是mapper标签，然后读取进Configuration对象，具体怎么读呢?以packeage为例</p>
+<ol start="4">
+<li>读取package的代码如下<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="string">"package"</span>.equals(child.getName())) &#123;</span><br><span class="line">                        resource = child.getStringAttribute(<span class="string">"name"</span>);</span><br><span class="line">                        <span class="keyword">this</span>.configuration.addMappers(resource);</span><br><span class="line">                    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>resource获得包名后，调用addMappers，有多个重载，最终调用到参数类型为String packageName, Class&lt;?&gt; superType的addMappers<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addMappers</span><span class="params">(String packageName)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.mapperRegistry.addMappers(packageName);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addMappers</span><span class="params">(String packageName)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.addMappers(packageName, Object<span class="class">.<span class="keyword">class</span>)</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li>最终调用的addMappers方法<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addMappers</span><span class="params">(String packageName, Class&lt;?&gt; superType)</span> </span>&#123;<span class="comment">//最终调用到这个addMapper方法</span></span><br><span class="line">        ResolverUtil&lt;Class&lt;?&gt;&gt; resolverUtil = <span class="keyword">new</span> ResolverUtil();</span><br><span class="line">        resolverUtil.find(<span class="keyword">new</span> IsA(superType), packageName);</span><br><span class="line">        Set&lt;Class&lt;? extends Class&lt;?&gt;&gt;&gt; mapperSet = resolverUtil.getClasses();</span><br><span class="line">        Iterator var5 = mapperSet.iterator();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span>(var5.hasNext()) &#123;</span><br><span class="line">            Class&lt;?&gt; mapperClass = (Class)var5.next();</span><br><span class="line">            <span class="keyword">this</span>.addMapper(mapperClass);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>其中find方法去找当前工程有无该包，若有，经过匹配后，会加入到该resolverUtil中的Set对象中，通过getClasses得到该添加完毕的set对象。调用自身参数类型为Class<t> type的addMapper方法，进入该addMapper方法</t></p>
+<ol start="6">
+<li>自身参数类型为Class<t> type的addMapper方法如下<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> &lt;T&gt; <span class="function"><span class="keyword">void</span> <span class="title">addMapper</span><span class="params">(Class&lt;T&gt; type)</span> </span>&#123;</span><br><span class="line">      <span class="keyword">if</span> (type.isInterface()) &#123;</span><br><span class="line">          <span class="keyword">if</span> (<span class="keyword">this</span>.hasMapper(type)) &#123;</span><br><span class="line">              <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"Type "</span> + type + <span class="string">" is already known to the MapperRegistry."</span>);</span><br><span class="line">          &#125;</span><br><span class="line">          <span class="keyword">boolean</span> loadCompleted = <span class="keyword">false</span>;</span><br><span class="line">          <span class="keyword">try</span> &#123;</span><br><span class="line">              <span class="keyword">this</span>.knownMappers.put(type, <span class="keyword">new</span> MapperProxyFactory(type));<span class="comment">//准备加载的Class对象的map</span></span><br><span class="line">              MapperAnnotationBuilder parser = <span class="keyword">new</span> MapperAnnotationBuilder(<span class="keyword">this</span>.config, type);</span><br><span class="line">              parser.parse();</span><br><span class="line">              loadCompleted = <span class="keyword">true</span>;<span class="comment">//加载完成，继续放在该map中</span></span><br><span class="line">          &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">              <span class="keyword">if</span> (!loadCompleted) &#123;<span class="comment">//加载未完成，从该map中移除出去</span></span><br><span class="line">                  <span class="keyword">this</span>.knownMappers.remove(type);</span><br><span class="line">              &#125;</span><br><span class="line">          &#125;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+</t></li>
+</ol>
+<p>可以看到，最终通过MapperAnnotationBuilder.parser完成解析，从名称上Mapper注解的构建解析，解析过程肯定在这里，进去看看</p>
+<ol start="7">
+<li>具体的MapperAnnotationBuilder.parser方法，<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        String resource = <span class="keyword">this</span>.type.toString();</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(resource)) &#123;<span class="comment">//已加载过则不执行</span></span><br><span class="line">            <span class="keyword">this</span>.loadXmlResource();<span class="comment">//加载寻找package对应的xml文件，有的话，则加载。没有则执行完向下</span></span><br><span class="line">            <span class="keyword">this</span>.configuration.addLoadedResource(resource);<span class="comment">//里面是Set，表示已加载的resource</span></span><br><span class="line">            <span class="keyword">this</span>.assistant.setCurrentNamespace(<span class="keyword">this</span>.type.getName());</span><br><span class="line">            <span class="keyword">this</span>.parseCache();<span class="comment">//解析缓存</span></span><br><span class="line">            <span class="keyword">this</span>.parseCacheRef();</span><br><span class="line">            Method[] methods = <span class="keyword">this</span>.type.getMethods();</span><br><span class="line">            Method[] var3 = methods;</span><br><span class="line">            <span class="keyword">int</span> var4 = methods.length;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">for</span>(<span class="keyword">int</span> var5 = <span class="number">0</span>; var5 &lt; var4; ++var5) &#123;</span><br><span class="line">                Method method = var3[var5];</span><br><span class="line"></span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    <span class="keyword">if</span> (!method.isBridge()) &#123;</span><br><span class="line">                        <span class="keyword">this</span>.parseStatement(method);<span class="comment">//如果读取了xml文件不会进入，未读，则在该方法中去类中读取注解</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; <span class="keyword">catch</span> (IncompleteElementException var8) &#123;</span><br><span class="line">                    <span class="keyword">this</span>.configuration.addIncompleteMethod(<span class="keyword">new</span> MethodResolver(<span class="keyword">this</span>, method));</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>.parsePendingMethods();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>其中有loadXmlResource方法，装载xml文件，装载什么配置文件呢，主配置文件装载过了，显然是映射的配置文件，进去看看</p>
+<ol start="8">
+<li>loadXmlResource代码如下<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">loadXmlResource</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(<span class="string">"namespace:"</span> + <span class="keyword">this</span>.type.getName())) &#123;</span><br><span class="line">            String xmlResource = <span class="keyword">this</span>.type.getName().replace(<span class="string">'.'</span>, <span class="string">'/'</span>) + <span class="string">".xml"</span>;<span class="comment">//将配置文件中package配的/换成. ，得到对应的xml的文件名称(这就是为什么文件名称要统一的原因)</span></span><br><span class="line">            InputStream inputStream = <span class="keyword">null</span>;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                inputStream = Resources.getResourceAsStream(<span class="keyword">this</span>.type.getClassLoader(), xmlResource);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (IOException var4) &#123;</span><br><span class="line">                ;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (inputStream != <span class="keyword">null</span>) &#123;<span class="comment">//读取到对应的配置文件</span></span><br><span class="line">                XMLMapperBuilder xmlParser = <span class="keyword">new</span> XMLMapperBuilder(inputStream, <span class="keyword">this</span>.assistant.getConfiguration(), xmlResource, <span class="keyword">this</span>.configuration.getSqlFragments(), <span class="keyword">this</span>.type.getName());</span><br><span class="line">                xmlParser.parse();<span class="comment">//进行解析</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>我们可以看到在这里会将配置文件中package配的”.”换成”/ “，得到对应的xml的文件名称(这就是为什么文件名称要统一的原因)，读取了该文件调用了xmlParser.parse()方法</p>
+<ol start="9">
+<li><p>xmlParser.parse()方法具体解析过程如下<br>*1.parse进行具体解析，代码如下，可以看到有个configurationElement方法读取了xml里mapper的sql信息，怎么读取的呢?</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(<span class="keyword">this</span>.resource)) &#123;</span><br><span class="line">            <span class="keyword">this</span>.configurationElement(<span class="keyword">this</span>.parser.evalNode(<span class="string">"/mapper"</span>));<span class="comment">//读取到mapper标签的内容进行具体解析，这个方法将参数换成了占位符!!!重要</span></span><br><span class="line">            <span class="keyword">this</span>.configuration.addLoadedResource(<span class="keyword">this</span>.resource);<span class="comment">//加入到已读map中</span></span><br><span class="line">            <span class="keyword">this</span>.bindMapperForNamespace();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>.parsePendingResultMaps();</span><br><span class="line">        <span class="keyword">this</span>.parsePendingCacheRefs();</span><br><span class="line">        <span class="keyword">this</span>.parsePendingStatements();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p> *2.进入configurationElement方法，代码如下，其中的buildStatementFromContext方法中读取了具体的sql操作的标签信息，进buildStatementFromContext看看</p>
+</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">configurationElement</span><span class="params">(XNode context)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;<span class="comment">//获取对应参数</span></span><br><span class="line">            String namespace = context.getStringAttribute(<span class="string">"namespace"</span>);<span class="comment">//获取命名空间</span></span><br><span class="line">            <span class="keyword">if</span> (namespace != <span class="keyword">null</span> &amp;&amp; !namespace.equals(<span class="string">""</span>)) &#123;</span><br><span class="line">                <span class="keyword">this</span>.builderAssistant.setCurrentNamespace(namespace);</span><br><span class="line">                <span class="keyword">this</span>.cacheRefElement(context.evalNode(<span class="string">"cache-ref"</span>));<span class="comment">//获取缓存信息</span></span><br><span class="line">                <span class="keyword">this</span>.cacheElement(context.evalNode(<span class="string">"cache"</span>));</span><br><span class="line">                <span class="keyword">this</span>.parameterMapElement(context.evalNodes(<span class="string">"/mapper/parameterMap"</span>));/</span><br><span class="line">                <span class="keyword">this</span>.resultMapElements(context.evalNodes(<span class="string">"/mapper/resultMap"</span>));</span><br><span class="line">                <span class="keyword">this</span>.sqlElement(context.evalNodes(<span class="string">"/mapper/sql"</span>));<span class="comment">//获取动态sql标签</span></span><br><span class="line">                <span class="keyword">this</span>.buildStatementFromContext(context.evalNodes(<span class="string">"select|insert|update|delete"</span>));<span class="comment">//具体的读取sql！！！</span></span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Mapper's namespace cannot be empty"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var3) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Error parsing Mapper XML. The XML location is '"</span> + <span class="keyword">this</span>.resource + <span class="string">"'. Cause: "</span> + var3, var3);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*3.追踪进buildStatementFromContext方法中，代码如下    
+</code></pre><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">buildStatementFromContext</span><span class="params">(List&lt;XNode&gt; list)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.configuration.getDatabaseId() != <span class="keyword">null</span>) &#123;<span class="comment">//获取数据库的配置信息，不为null，则从Configuration中读取</span></span><br><span class="line">            <span class="keyword">this</span>.buildStatementFromContext(list, <span class="keyword">this</span>.configuration.getDatabaseId());</span><br><span class="line">        &#125;<span class="comment">//null时，传入null</span></span><br><span class="line">        <span class="keyword">this</span>.buildStatementFromContext(list, (String)<span class="keyword">null</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*4.继续进入buildStatementFromContext方法中，名字上可以看出是创建Statement对象从Context中(应该是指写在xml中的sql语句)，在该方法中有一个statementParser.parseStatementNode()方法值得注意
+</code></pre><p>(看到了熟悉的Statement)<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">buildStatementFromContext</span><span class="params">(List&lt;XNode&gt; list, String requiredDatabaseId)</span> </span>&#123;</span><br><span class="line">        Iterator var3 = list.iterator();</span><br><span class="line">        <span class="keyword">while</span>(var3.hasNext()) &#123;<span class="comment">//获得单个的XNode</span></span><br><span class="line">            XNode context = (XNode)var3.next();</span><br><span class="line">            XMLStatementBuilder statementParser = <span class="keyword">new</span> XMLStatementBuilder(<span class="keyword">this</span>.configuration, <span class="keyword">this</span>.builderAssistant, context, requiredDatabaseId);</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                statementParser.parseStatementNode();<span class="comment">//进行解析！！！</span></span><br><span class="line">            &#125; <span class="keyword">catch</span> (IncompleteElementException var7) &#123;</span><br><span class="line">                <span class="keyword">this</span>.configuration.addIncompleteStatement(statementParser);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<pre><code>*5.进入statementParser.parseStatementNode方法，很多熟悉的配方，答案不远了
+</code></pre><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parseStatementNode</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        String id = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"id"</span>);</span><br><span class="line">        String databaseId = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"databaseId"</span>);</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.databaseIdMatchesCurrent(id, databaseId, <span class="keyword">this</span>.requiredDatabaseId)) &#123;</span><br><span class="line">            Integer fetchSize = <span class="keyword">this</span>.context.getIntAttribute(<span class="string">"fetchSize"</span>);</span><br><span class="line">            Integer timeout = <span class="keyword">this</span>.context.getIntAttribute(<span class="string">"timeout"</span>);</span><br><span class="line">            String parameterMap = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"parameterMap"</span>);</span><br><span class="line">            String parameterType = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"parameterType"</span>);</span><br><span class="line">            Class&lt;?&gt; parameterTypeClass = <span class="keyword">this</span>.resolveClass(parameterType);</span><br><span class="line">            String resultMap = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultMap"</span>);</span><br><span class="line">            String resultType = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultType"</span>);</span><br><span class="line">            String lang = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"lang"</span>);</span><br><span class="line">            LanguageDriver langDriver = <span class="keyword">this</span>.getLanguageDriver(lang);</span><br><span class="line">            Class&lt;?&gt; resultTypeClass = <span class="keyword">this</span>.resolveClass(resultType);</span><br><span class="line">            String resultSetType = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultSetType"</span>);</span><br><span class="line">            StatementType statementType = StatementType.valueOf(<span class="keyword">this</span>.context.getStringAttribute(<span class="string">"statementType"</span>, StatementType.PREPARED.toString()));</span><br><span class="line">            ResultSetType resultSetTypeEnum = <span class="keyword">this</span>.resolveResultSetType(resultSetType);</span><br><span class="line">            String nodeName = <span class="keyword">this</span>.context.getNode().getNodeName();</span><br><span class="line">            SqlCommandType sqlCommandType = SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));</span><br><span class="line">            <span class="keyword">boolean</span> isSelect = sqlCommandType == SqlCommandType.SELECT;</span><br><span class="line">            <span class="keyword">boolean</span> flushCache = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"flushCache"</span>, !isSelect);</span><br><span class="line">            <span class="keyword">boolean</span> useCache = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"useCache"</span>, isSelect);</span><br><span class="line">            <span class="keyword">boolean</span> resultOrdered = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"resultOrdered"</span>, <span class="keyword">false</span>);</span><br><span class="line">            XMLIncludeTransformer includeParser = <span class="keyword">new</span> XMLIncludeTransformer(<span class="keyword">this</span>.configuration, <span class="keyword">this</span>.builderAssistant);</span><br><span class="line">            includeParser.applyIncludes(<span class="keyword">this</span>.context.getNode());</span><br><span class="line">            <span class="keyword">this</span>.processSelectKeyNodes(id, parameterTypeClass, langDriver);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">            SqlSource sqlSource = langDriver.createSqlSource(<span class="keyword">this</span>.configuration, <span class="keyword">this</span>.context, parameterTypeClass);<span class="comment">//SqlSource(sql语句来源），这里调用了一个createSqlSource方法</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">            String resultSets = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultSets"</span>);</span><br><span class="line">            String keyProperty = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"keyProperty"</span>);</span><br><span class="line">            String keyColumn = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"keyColumn"</span>);</span><br><span class="line">            String keyStatementId = id + <span class="string">"!selectKey"</span>;</span><br><span class="line">            keyStatementId = <span class="keyword">this</span>.builderAssistant.applyCurrentNamespace(keyStatementId, <span class="keyword">true</span>);</span><br><span class="line">            Object keyGenerator;</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">this</span>.configuration.hasKeyGenerator(keyStatementId)) &#123;</span><br><span class="line">                keyGenerator = <span class="keyword">this</span>.configuration.getKeyGenerator(keyStatementId);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                keyGenerator = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"useGeneratedKeys"</span>, <span class="keyword">this</span>.configuration.isUseGeneratedKeys() &amp;&amp; SqlCommandType.INSERT.equals(sqlCommandType)) ? Jdbc3KeyGenerator.INSTANCE : NoKeyGenerator.INSTANCE;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">this</span>.builderAssistant.addMappedStatement(id, sqlSource, statementType, sqlCommandType, fetchSize, timeout, parameterMap, parameterTypeClass, resultMap, resultTypeClass, resultSetTypeEnum, flushCache, useCache, resultOrdered, (KeyGenerator)keyGenerator, keyProperty, keyColumn, databaseId, langDriver, resultSets);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>发现有个方法createSqlSource，看名字就是创建sqlSource</p>
+<blockquote>
+<p>当parseStatementNode方法执行完毕时，会将结果放到MappedStatement里,即配置文件中所有的mapper信息读取完毕</p>
+<p>MappedStatement中存放的信息</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">MappedStatement</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> String resource;</span><br><span class="line">    <span class="keyword">private</span> Configuration configuration;</span><br><span class="line">    <span class="keyword">private</span> String id;</span><br><span class="line">    <span class="keyword">private</span> Integer fetchSize;</span><br><span class="line">    <span class="keyword">private</span> Integer timeout;</span><br><span class="line">    <span class="keyword">private</span> StatementType statementType;</span><br><span class="line">    <span class="keyword">private</span> ResultSetType resultSetType;</span><br><span class="line">    <span class="keyword">private</span> SqlSource sqlSource;</span><br><span class="line">    <span class="keyword">private</span> Cache cache;</span><br><span class="line">    <span class="keyword">private</span> ParameterMap parameterMap;</span><br><span class="line">    <span class="keyword">private</span> List&lt;ResultMap&gt; resultMaps;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> flushCacheRequired;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> useCache;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> resultOrdered;</span><br><span class="line">    <span class="keyword">private</span> SqlCommandType sqlCommandType;</span><br><span class="line">    <span class="keyword">private</span> KeyGenerator keyGenerator;</span><br><span class="line">    <span class="keyword">private</span> String[] keyProperties;</span><br><span class="line">    <span class="keyword">private</span> String[] keyColumns;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> hasNestedResultMaps;</span><br><span class="line">    <span class="keyword">private</span> String databaseId;</span><br><span class="line">    <span class="keyword">private</span> Log statementLog;</span><br><span class="line">    <span class="keyword">private</span> LanguageDriver lang;</span><br><span class="line">    <span class="keyword">private</span> String[] resultSets;</span><br></pre></td></tr></table></figure>
+<pre><code>*6. 通过debug，进入到一个名为XMLLanguageDriver的类中的createSqlSource
+</code></pre><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSource <span class="title">createSqlSource</span><span class="params">(Configuration configuration, XNode script, Class&lt;?&gt; parameterType)</span> </span>&#123;</span><br><span class="line">        XMLScriptBuilder builder = <span class="keyword">new</span> XMLScriptBuilder(configuration, script, parameterType);</span><br><span class="line">        <span class="keyword">return</span> builder.parseScriptNode();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*7.打开builder.parseScriptNode()方法,可以看到在这里开始判断使用哪种解析方式，是动态还是非动态
+</code></pre><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSource <span class="title">parseScriptNode</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        MixedSqlNode rootSqlNode = <span class="keyword">this</span>.parseDynamicTags(<span class="keyword">this</span>.context);</span><br><span class="line">        SqlSource sqlSource = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.isDynamic) &#123;<span class="comment">//判断是否为动态sql，是则调用</span></span><br><span class="line">            sqlSource = <span class="keyword">new</span> DynamicSqlSource(<span class="keyword">this</span>.configuration, rootSqlNode);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            sqlSource = <span class="keyword">new</span> RawSqlSource(<span class="keyword">this</span>.configuration, rootSqlNode, <span class="keyword">this</span>.parameterType);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> (SqlSource)sqlSource;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*8.打开RawSqlSource方法
+</code></pre><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">RawSqlSource</span><span class="params">(Configuration configuration, SqlNode rootSqlNode, Class&lt;?&gt; parameterType)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>(configuration, getSql(configuration, rootSqlNode), parameterType);</span><br><span class="line">    &#125;<span class="comment">//getSql(configuration, rootSqlNode)从名称可以得知，从配置对象，和读取的结点信息获取String类型的sql对象</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">RawSqlSource</span><span class="params">(Configuration configuration, String sql, Class&lt;?&gt; parameterType)</span> </span>&#123;</span><br><span class="line">        SqlSourceBuilder sqlSourceParser = <span class="keyword">new</span> SqlSourceBuilder(configuration);</span><br><span class="line">        Class&lt;?&gt; clazz = parameterType == null ? Object.class : parameterType;</span><br><span class="line">        <span class="keyword">this</span>.sqlSource = sqlSourceParser.parse(sql, clazz, <span class="keyword">new</span> HashMap());</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>调用的是第一个构造方法，在该构造方法中又调用第二个构造方法，来创建RawSqlSource对象，在第二个构造方法中有sqlSourceParser.parse方法，很接近答案了<br>    *9.跟进sqlSourceParser.parse方法中<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSource <span class="title">parse</span><span class="params">(String originalSql, Class&lt;?&gt; parameterType, Map&lt;String, Object&gt; additionalParameters)</span> </span>&#123;</span><br><span class="line">        SqlSourceBuilder.ParameterMappingTokenHandler handler = <span class="keyword">new</span> SqlSourceBuilder.ParameterMappingTokenHandler(<span class="keyword">this</span>.configuration, parameterType, additionalParameters);</span><br><span class="line">        GenericTokenParser parser = <span class="keyword">new</span> GenericTokenParser(<span class="string">"#&#123;"</span>, <span class="string">"&#125;"</span>, handler);</span><br><span class="line">        String sql = parser.parse(originalSql);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> StaticSqlSource(<span class="keyword">this</span>.configuration, sql, handler.getParameterMappings());</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>可以看到mybaits在这里把#{,}切开来进行了替换，看最后的返回值为 return new StaticSqlSource(this.configuration, sql, handler.getParameterMappings());  根据名称可以知道一个是配置对象，一个是替换后的sql语句，一个是原先在#{}中的参数信息的集合，可以推出ParameterMappingTokenHandler对象应该是用于参数的存放<br><strong>第一个问题差不多就算是明白了，下一个问题</strong></p>
+<h3 id="2-第二个问题"><a href="#2-第二个问题" class="headerlink" title="2.第二个问题"></a>2.第二个问题</h3><ol>
+<li><p>回到MapperAnnotationBuilder的parse方法，当没有加载到对应的xml文件时，继续向下执行，在try，catch中，有一个if判断，如果读取了xml文件不会进入，未读，则调用parseStatement方法中去类中读取注解</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        String resource = <span class="keyword">this</span>.type.toString();</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(resource)) &#123;<span class="comment">//已加载过则不执行</span></span><br><span class="line">            <span class="keyword">this</span>.loadXmlResource();<span class="comment">//加载寻找package对应的xml文件，有的话，则加载。没有则执行完向下</span></span><br><span class="line">            <span class="keyword">this</span>.configuration.addLoadedResource(resource);<span class="comment">//里面是Set，表示已加载的resource</span></span><br><span class="line">            <span class="keyword">this</span>.assistant.setCurrentNamespace(<span class="keyword">this</span>.type.getName());</span><br><span class="line">            <span class="keyword">this</span>.parseCache();<span class="comment">//解析缓存</span></span><br><span class="line">            <span class="keyword">this</span>.parseCacheRef();</span><br><span class="line">            Method[] methods = <span class="keyword">this</span>.type.getMethods();</span><br><span class="line">            Method[] var3 = methods;</span><br><span class="line">            <span class="keyword">int</span> var4 = methods.length;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">for</span>(<span class="keyword">int</span> var5 = <span class="number">0</span>; var5 &lt; var4; ++var5) &#123;</span><br><span class="line">                Method method = var3[var5];</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    <span class="keyword">if</span> (!method.isBridge()) &#123;</span><br><span class="line">                        <span class="keyword">this</span>.parseStatement(method);<span class="comment">//如果读取了xml文件不会进入，未读，则在该方法中去类中读取注解</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; <span class="keyword">catch</span> (IncompleteElementException var8) &#123;</span><br><span class="line">                    <span class="keyword">this</span>.configuration.addIncompleteMethod(<span class="keyword">new</span> MethodResolver(<span class="keyword">this</span>, method));</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>.parsePendingMethods();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>进入parseStatement方法</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">parseStatement</span><span class="params">(Method method)</span> </span>&#123;</span><br><span class="line">        Class&lt;?&gt; parameterTypeClass = <span class="keyword">this</span>.getParameterType(method);</span><br><span class="line">        LanguageDriver languageDriver = <span class="keyword">this</span>.getLanguageDriver(method);</span><br><span class="line">        SqlSource sqlSource = <span class="keyword">this</span>.getSqlSourceFromAnnotations(method, parameterTypeClass, languageDriver);</span><br><span class="line">        <span class="keyword">if</span> (sqlSource != <span class="keyword">null</span>) &#123;<span class="comment">//没截全</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>仔细看有一个getSqlSourceFromAnnotations方法，获取SqlSource对象从注解中<br>3.进入getSqlSourceFromAnnotations方法,可以看到开始获得注解信息<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> SqlSource <span class="title">getSqlSourceFromAnnotations</span><span class="params">(Method method, Class&lt;?&gt; parameterType, LanguageDriver languageDriver)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Class&lt;? extends Annotation&gt; sqlAnnotationType = <span class="keyword">this</span>.getSqlAnnotationType(method);</span><br><span class="line">            Class&lt;? extends Annotation&gt; sqlProviderAnnotationType = <span class="keyword">this</span>.getSqlProviderAnnotationType(method);</span><br><span class="line">            Annotation sqlProviderAnnotation;</span><br><span class="line">            <span class="keyword">if</span> (sqlAnnotationType != <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="keyword">if</span> (sqlProviderAnnotationType != <span class="keyword">null</span>) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"You cannot supply both a static SQL and SqlProvider to method named "</span> + method.getName());</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    sqlProviderAnnotation = method.getAnnotation(sqlAnnotationType);</span><br><span class="line">                    String[] strings = (String[])((String[])sqlProviderAnnotation.getClass().getMethod(<span class="string">"value"</span>).invoke(sqlProviderAnnotation));</span><br><span class="line">                    <span class="keyword">return</span> <span class="keyword">this</span>.buildSqlSourceFromStrings(strings, parameterType, languageDriver);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (sqlProviderAnnotationType != <span class="keyword">null</span>) &#123;</span><br><span class="line">                sqlProviderAnnotation = method.getAnnotation(sqlProviderAnnotationType);</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">new</span> ProviderSqlSource(<span class="keyword">this</span>.assistant.getConfiguration(), sqlProviderAnnotation, <span class="keyword">this</span>.type, method);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var8) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Could not find value method on SQL annotation.  Cause: "</span> + var8, var8);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>搞定收工!</strong></p>
+]]></content>
+      <categories>
+        <category>源码分析</category>
+        <category>mybatis</category>
+      </categories>
+  </entry>
+  <entry>
+    <title>mybatis 缓存</title>
+    <url>/2019/01/26/mybatis-%E7%BC%93%E5%AD%98/</url>
+    <content><![CDATA[<h1 id="一-mybatis-两级缓存"><a href="#一-mybatis-两级缓存" class="headerlink" title="一.mybatis 两级缓存"></a>一.mybatis 两级缓存</h1><h2 id="1-一级缓存-本地缓存"><a href="#1-一级缓存-本地缓存" class="headerlink" title="1.一级缓存(本地缓存)"></a>1.一级缓存(本地缓存)</h2><a id="more"></a>
+<h3 id="1-使用"><a href="#1-使用" class="headerlink" title="*1.使用"></a>*1.使用</h3><p>sqlSession级别的缓存(一个Map)，一级缓存一直开启，与数据库同一次会话期间查询到的数据会放在本地缓存中，以后如果需要获取相同的数据，直接从缓存中取</p>
+<h3 id="2-失效情况"><a href="#2-失效情况" class="headerlink" title="*2.失效情况"></a>*2.失效情况</h3><ul>
+<li>sqlSession不同</li>
+<li>sqlSession相同，查询条件不同(一级缓存中还没有这个数据)</li>
+<li>sqlSession相同，两次查询之间执行了增删改的操作</li>
+<li>sqlSession相同，手动清除了一级缓存</li>
+</ul>
+<hr>
+<h2 id="2-二级缓存-全局缓存"><a href="#2-二级缓存-全局缓存" class="headerlink" title="2.二级缓存(全局缓存)"></a>2.二级缓存(全局缓存)</h2><p>基于namespace级别的缓存，一个namespace对应一个二级缓存</p>
+<h3 id="1-工作机制"><a href="#1-工作机制" class="headerlink" title="*1. 工作机制"></a>*1. 工作机制</h3><ul>
+<li>一个会话，查询一条数据，这个数据就会被放在当前会话的一级缓存中。如果<strong>会话关闭</strong>，一级缓存中的数据会被保存到二级缓存中，新的会话查询信息，就可以参照二级缓存</li>
+<li>不同namespace查出的数据会放在自己对应的缓存中(map)<h3 id="2-使用"><a href="#2-使用" class="headerlink" title="*2. 使用"></a>*2. 使用</h3><h4 id="1-开启全局二级缓存"><a href="#1-开启全局二级缓存" class="headerlink" title="**1. 开启全局二级缓存"></a>**1. 开启全局二级缓存</h4><h4 id="2-mapper-xml中配置使用二级缓存"><a href="#2-mapper-xml中配置使用二级缓存" class="headerlink" title="**2. mapper.xml中配置使用二级缓存"></a>**2. mapper.xml中配置使用二级缓存</h4>对应的mapper会有二级缓存<br><img src="\cttImages\1548472648617.png" alt="1548472648617"><h4 id="3-实体类要实现序列化接口"><a href="#3-实体类要实现序列化接口" class="headerlink" title="**3.实体类要实现序列化接口"></a>**3.实体类要实现序列化接口</h4><ul>
+<li>eviction(回收策略)<ul>
+<li>LRU(默认) 移除最长时间不使用的对象</li>
+<li>FIFO 按对象进入缓存的顺序来移除</li>
+<li>SOFT 软引用，基于垃圾回收器状态和软引用规则移除对象</li>
+<li>WEAK 弱引用，基于垃圾回收器状态和软引用规则移除对象，更积极</li>
+</ul>
+</li>
+<li>flushInterval(缓存刷新间隔):缓存多长时间清空一次，默认不清空，设置一个毫秒值</li>
+<li>readOnly(是否只读)：<ul>
+<li>true：mybatis认为所有从缓存中获取数据的操作都是只读，会直接把对对象的引用交给用户</li>
+<li>false： mybatis认为获取数据可能会被修改，利用序列化反序列克隆一份新数据给用户</li>
+</ul>
+</li>
+<li>size(存放多少元素)</li>
+<li>type(指定自定义缓存全类名)，实现Cache接口即可<h2 id="3-缓存的相关配置"><a href="#3-缓存的相关配置" class="headerlink" title="3.缓存的相关配置"></a>3.缓存的相关配置</h2><img src="\cttImages\1548473336719.png" alt="1548473336719"><br>注：cacheEnable 是在全局mapper配置setting中的属性<h2 id="4-整合第三方缓存"><a href="#4-整合第三方缓存" class="headerlink" title="4.整合第三方缓存"></a>4.整合第三方缓存</h2>mybatis自带有一二级缓存，并且提供了Cache接口，供用户使用第三方缓存，如ehCache、redisCache</li>
+</ul>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>后台方向</category>
+        <category>后台框架</category>
+        <category>ssm</category>
+        <category>mybatis</category>
+      </categories>
+      <tags>
+        <tag>java</tag>
+        <tag>ssm</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Hexo 关联GitHub搭建自己的博客</title>
+    <url>/2019/01/23/Hexo-%E5%85%B3%E8%81%94GitHub%E6%90%AD%E5%BB%BA%E8%87%AA%E5%B7%B1%E7%9A%84%E5%8D%9A%E5%AE%A2/</url>
+    <content><![CDATA[<h1 id="Hexo-关联GitHub搭建自己的博客"><a href="#Hexo-关联GitHub搭建自己的博客" class="headerlink" title="Hexo 关联GitHub搭建自己的博客"></a>Hexo 关联GitHub搭建自己的博客</h1><h2 id="一-安装步骤"><a href="#一-安装步骤" class="headerlink" title="一.安装步骤"></a>一.安装步骤</h2><p><a href="https://blog.csdn.net/sinat_37781304/article/details/82729029" target="_blank" rel="noopener">Hexo安装+GitHub关联+设置个人域名</a></p>
+<ul>
+<li>注: 1. GitHub中的GitPage必须是public仓库<h2 id="二-使用"><a href="#二-使用" class="headerlink" title="二.使用"></a>二.使用</h2><a id="more"></a>
+<h3 id="1-添加文章："><a href="#1-添加文章：" class="headerlink" title="1.添加文章："></a>1.添加文章：</h3></li>
+<li>hexo new “context_name” 创建一个发布上去的文章</li>
+<li>hexo new draft “context_name” 创建一个草稿<br>运行时，草稿中的文章是不会出现，要预览草稿中的文章，要通过 hexo server –draft启动<br>发布草稿，hexo publish b，从draft转移到post中</li>
+<li>hexo new page “page_name”<br>对应一个页面，可以填写type属性(可自定义，也可以用已有的页面 如:/about,/tags)<h3 id="2-删除文章："><a href="#2-删除文章：" class="headerlink" title="2.删除文章："></a>2.删除文章：</h3></li>
+<li>直接在本地source文件夹中删除对应文章即可<h3 id="3-基本命令："><a href="#3-基本命令：" class="headerlink" title="3.基本命令："></a>3.基本命令：</h3></li>
+<li>hexo generate 用于生成静态文件</li>
+<li>hexo server 用于启动服务器</li>
+<li>hexo clean 用于清楚之前生成的东西(可不加)</li>
+<li>hexo g 用于生成静态文章</li>
+<li>hexo d 用于本地文件发布到github中<h2 id="三-主题"><a href="#三-主题" class="headerlink" title="三.主题"></a>三.主题</h2><h3 id="1-next主题"><a href="#1-next主题" class="headerlink" title="1.next主题"></a>1.next主题</h3><a href="http://theme-next.iissnan.com/getting-started.html#menu-settings" target="_blank" rel="noopener">next 官方文档</a><br><a href="https://www.jianshu.com/p/3a05351a37dc" target="_blank" rel="noopener">简书中 next主题的设置</a><h2 id="四-常用设置"><a href="#四-常用设置" class="headerlink" title="四.常用设置"></a>四.常用设置</h2><h3 id="1-阅读全文按钮"><a href="#1-阅读全文按钮" class="headerlink" title="1.阅读全文按钮"></a>1.阅读全文按钮</h3>！–more–   两边要有&lt;  &gt;<h3 id="2-设置多个标签-子主题"><a href="#2-设置多个标签-子主题" class="headerlink" title="2. 设置多个标签 子主题"></a>2. 设置多个标签 子主题</h3><a href="https://www.jianshu.com/p/e17711e44e00" target="_blank" rel="noopener">参考本文的设置方式</a><h3 id="3-博客加密"><a href="#3-博客加密" class="headerlink" title="3.博客加密"></a>3.博客加密</h3><a href="https://www.jianshu.com/p/a2330937de6c" target="_blank" rel="noopener">简单加密的方式</a><br><a href="https://github.com/MikeCoder/hexo-blog-encrypt/blob/master/ReadMe.zh.md" target="_blank" rel="noopener">插件加密文档</a></li>
+</ul>
+]]></content>
+      <categories>
+        <category>小工具</category>
+        <category>hexo</category>
+      </categories>
+      <tags>
+        <tag>Computer</tag>
+        <tag>Study</tag>
+        <tag>hexo</tag>
+      </tags>
+  </entry>
+</search>

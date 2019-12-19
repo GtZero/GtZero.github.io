@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-Hans">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"always","offset":12,"b2t":false,"scrollpercent":"t","onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo研究mybatis，即  mybatis怎么读取配置文件创建SqlSessionFactory SqlSession运行过程   这里更多探究的是mybatis怎么读取配置文件创建SqlSessionFactory">
+<meta property="og:type" content="article">
+<meta property="og:title" content="源码分析 mybatis 读取配置文件">
+<meta property="og:url" content="http://yoursite.com/2019/01/27/源码分析 mybatis 读取配置文件/index.html">
+<meta property="og:site_name" content="RINGLING">
+<meta property="og:description" content="持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo研究mybatis，即  mybatis怎么读取配置文件创建SqlSessionFactory SqlSession运行过程   这里更多探究的是mybatis怎么读取配置文件创建SqlSessionFactory">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2019-12-16T15:58:56.059Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="源码分析 mybatis 读取配置文件">
+<meta name="twitter:description" content="持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo研究mybatis，即  mybatis怎么读取配置文件创建SqlSessionFactory SqlSession运行过程   这里更多探究的是mybatis怎么读取配置文件创建SqlSessionFactory">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2019/01/27/源码分析 mybatis 读取配置文件/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>源码分析 mybatis 读取配置文件 | RINGLING</title>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">RINGLING</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <p class="site-subtitle">做一只有趣的猪</p>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="Toggle navigation bar">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-首页">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-目录">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>目录</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-标签">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-归档">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-我">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>我</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>Suche</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="Searching..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+    <div class="reading-progress-bar"></div>
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/01/27/源码分析 mybatis 读取配置文件/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="GuoT">
+      <meta itemprop="description" content>
+      <meta itemprop="image" content="/images/cat.png">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="RINGLING">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">源码分析 mybatis 读取配置文件
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+
+              
+                
+              
+
+              <time title="Post created: 2019-01-27 11:12:04" itemprop="dateCreated datePublished" datetime="2019-01-27T11:12:04+08:00">2019-01-27</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">Edited on</span>
+                
+                <time title="Updated at: 2019-12-16 23:58:56" itemprop="dateModified" datetime="2019-12-16T23:58:56+08:00">2019-12-16</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">in</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/源码分析/" itemprop="url" rel="index"><span itemprop="name">源码分析</span></a></span>
+
+                
+                
+                  . 
+                
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/源码分析/mybatis/" itemprop="url" rel="index"><span itemprop="name">mybatis</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+            
+          
+
+          
+          
+
+          
+
+			
+			<span class="post-meta-divider">|</span>
+			<span id="busuanzi_value_page_pv"></span>次阅读
+			
+		  
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo<br>研究mybatis，即</p>
+<ol>
+<li>mybatis怎么读取配置文件创建SqlSessionFactory</li>
+<li>SqlSession运行过程</li>
+</ol>
+</blockquote>
+<p><strong>这里更多探究的是mybatis怎么读取配置文件创建SqlSessionFactory</strong></p>
+<a id="more"></a>
+<p>[TOC]</p>
+<h2 id="一-简单执行流程"><a href="#一-简单执行流程" class="headerlink" title="一.简单执行流程"></a>一.简单执行流程</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;<span class="comment">//执行如下代码</span></span><br><span class="line">        String resource= <span class="string">"mybatis.cfg.xml"</span>;</span><br><span class="line">        InputStream in = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            in = Resources.getResourceAsStream(resource);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        SqlSessionFactory sqlSessionFactory = <span class="keyword">new</span> SqlSessionFactoryBuilder().build(in);</span><br><span class="line">        SqlSession sqlSession = sqlSessionFactory.openSession();</span><br><span class="line">        sqlSession.close();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>第一步，mybatis运行，创建SqlSessionFactoryBuilder工厂对象，调用build方法，读取配置文件信息存储在Configuration对象中，并创建SqlSessionFactory</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSessionFactory <span class="title">build</span><span class="params">(InputStream inputStream, String environment, Properties properties)</span> </span>&#123;</span><br><span class="line">        SqlSessionFactory var5;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            XMLConfigBuilder parser = <span class="keyword">new</span> XMLConfigBuilder(inputStream, environment, properties);</span><br><span class="line">            var5 = <span class="keyword">this</span>.build(parser.parse());<span class="comment">//通过XML解析器解析，获得DefaultSqlSession对象</span></span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var14) &#123;</span><br><span class="line">            <span class="keyword">throw</span> ExceptionFactory.wrapException(<span class="string">"Error building SqlSession."</span>, var14);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            ErrorContext.instance().reset();</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                inputStream.close();</span><br><span class="line">            &#125; <span class="keyword">catch</span> (IOException var13) &#123;</span><br><span class="line">                ;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> var5;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>第二步.创建SqlSession，赋予属性，从上一步获得的Configuration对象中，得到Environment环境信息，创建事务工厂，根据传入的事务隔离级别、是否自动提交的参数，创建事务对象。再根据事务、配置对象的执行器类型创建执行器对象，通过执行器对象创建SqlSession<br><strong>即事务工厂–&gt;事务–&gt;执行器–&gt;SqlSession</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSession <span class="title">openSession</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>.openSessionFromDataSource(<span class="keyword">this</span>.configuration.getDefaultExecutorType(), (TransactionIsolationLevel)<span class="keyword">null</span>, <span class="keyword">false</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> SqlSession <span class="title">openSessionFromDataSource</span><span class="params">(ExecutorType execType, TransactionIsolationLevel level, <span class="keyword">boolean</span> autoCommit)</span> </span>&#123;</span><br><span class="line">        Transaction tx = <span class="keyword">null</span>;</span><br><span class="line"></span><br><span class="line">        DefaultSqlSession var8;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Environment environment = <span class="keyword">this</span>.configuration.getEnvironment();<span class="comment">//读取配置文件中的环境信息</span></span><br><span class="line">            TransactionFactory transactionFactory = <span class="keyword">this</span>.getTransactionFactoryFromEnvironment(environment);<span class="comment">//创建事务工厂</span></span><br><span class="line">            tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);<span class="comment">//根据传入的TransactionIsolationLevel、autoCommit创建事务对象</span></span><br><span class="line">            Executor executor = <span class="keyword">this</span>.configuration.newExecutor(tx, execType);<span class="comment">//根据事务、配置对象的执行器类型创建执行器对象，这里是SimpleExecutor</span></span><br><span class="line">            var8 = <span class="keyword">new</span> DefaultSqlSession(<span class="keyword">this</span>.configuration, executor, autoCommit);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var12) &#123;</span><br><span class="line">            <span class="keyword">this</span>.closeTransaction(tx);</span><br><span class="line">            <span class="keyword">throw</span> ExceptionFactory.wrapException(<span class="string">"Error opening session.  Cause: "</span> + var12, var12);</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            ErrorContext.instance().reset();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> var8;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li>dirty:true  sql语句执行完毕后，事务提交,false  sql语句执行错误，事务回滚</li>
+<li>Executor;可用于创建Statement对象，依靠MapperStatement对象将赋值内容与占位符进行绑定</li>
+</ul>
+<p>第三步.SqlSession关闭</p>
+<h2 id="二-疑惑"><a href="#二-疑惑" class="headerlink" title="二.疑惑"></a>二.疑惑</h2><blockquote>
+<p><strong>mybatis有xml、注解的使用方式</strong><br><a href="https://www.cnblogs.com/shamo89/p/9960370.html" target="_blank" rel="noopener">mybatis的使用方式(如果对使用方式不熟可以看这篇)</a></p>
+</blockquote>
+<p>1.对于Sql的xml是怎么被读取的、为什么xml文件名要规定一致，sql的#{ }是怎么替换的?<br>2.对于注解又是怎么读取注解中的配置的?</p>
+<h2 id="三-解决"><a href="#三-解决" class="headerlink" title="三.解决"></a>三.解决</h2><h3 id="1-第一个问题"><a href="#1-第一个问题" class="headerlink" title="1.第一个问题"></a>1.第一个问题</h3><ol>
+<li>创建SqlSessionFactory对象，关键在于这个build方法读取配置文件，并将配置信息放到Configuration对象中，进入build方法<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSessionFactory <span class="title">build</span><span class="params">(InputStream inputStream, String environment, Properties properties)</span> </span>&#123;</span><br><span class="line">        SqlSessionFactory var5;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            XMLConfigBuilder parser = <span class="keyword">new</span> XMLConfigBuilder(inputStream, environment, properties);</span><br><span class="line">            var5 = <span class="keyword">this</span>.build(parser.parse());<span class="comment">//通过XML解析器解析，获得DefaultSqlSessionFactory对象</span></span><br><span class="line">        &#125; <span class="comment">//...</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>发现其中创建了一个XML解析器，调用了parse方法，进入parse方法</p>
+<ol start="2">
+<li>parse代码如下<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Configuration <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.parsed) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Each XMLConfigBuilder can only be used once."</span>);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.parsed = <span class="keyword">true</span>;</span><br><span class="line">            <span class="keyword">this</span>.parseConfiguration(<span class="keyword">this</span>.parser.evalNode(<span class="string">"/configuration"</span>));</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">this</span>.configuration;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>可以看到parse方法调用parseConfiguration找到configuration标签，读取内部内容，具体又是怎么读呢? 进入parseConfiguration方法</p>
+<ol start="3">
+<li>parseConfiguration方法如下，<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">parseConfiguration</span><span class="params">(XNode root)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">this</span>.propertiesElement(root.evalNode(<span class="string">"properties"</span>));</span><br><span class="line">            Properties settings = <span class="keyword">this</span>.settingsAsProperties(root.evalNode(<span class="string">"settings"</span>));</span><br><span class="line">            <span class="keyword">this</span>.loadCustomVfs(settings);</span><br><span class="line">            <span class="keyword">this</span>.typeAliasesElement(root.evalNode(<span class="string">"typeAliases"</span>));</span><br><span class="line">            <span class="keyword">this</span>.pluginElement(root.evalNode(<span class="string">"plugins"</span>));</span><br><span class="line">            <span class="keyword">this</span>.objectFactoryElement(root.evalNode(<span class="string">"objectFactory"</span>));</span><br><span class="line">            <span class="keyword">this</span>.objectWrapperFactoryElement(root.evalNode(<span class="string">"objectWrapperFactory"</span>));</span><br><span class="line">            <span class="keyword">this</span>.reflectorFactoryElement(root.evalNode(<span class="string">"reflectorFactory"</span>));</span><br><span class="line">            <span class="keyword">this</span>.settingsElement(settings);</span><br><span class="line">            <span class="keyword">this</span>.environmentsElement(root.evalNode(<span class="string">"environments"</span>));</span><br><span class="line">            <span class="keyword">this</span>.databaseIdProviderElement(root.evalNode(<span class="string">"databaseIdProvider"</span>));</span><br><span class="line">            <span class="keyword">this</span>.typeHandlerElement(root.evalNode(<span class="string">"typeHandlers"</span>));</span><br><span class="line">            <span class="keyword">this</span>.mapperElement(root.evalNode(<span class="string">"mappers"</span>));</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var3) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Error parsing SQL Mapper Configuration. Cause: "</span> + var3, var3);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>可以看到很多见过的属性，即读取主配置文件的属性进到Configuration对象中，具体怎么读，以读取mappers为例(其下有package、mapper标签)进入mapperElement方法</p>
+<ol start="3">
+<li>mapperElement方法如下<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">mapperElement</span><span class="params">(XNode parent)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (parent != <span class="keyword">null</span>) &#123;</span><br><span class="line">            Iterator var2 = parent.getChildren().iterator();</span><br><span class="line">            <span class="keyword">while</span>(<span class="keyword">true</span>) &#123;</span><br><span class="line">                <span class="keyword">while</span>(var2.hasNext()) &#123;</span><br><span class="line">                    XNode child = (XNode)var2.next();</span><br><span class="line">                    String resource;</span><br><span class="line">                    <span class="keyword">if</span> (<span class="string">"package"</span>.equals(child.getName())) &#123;</span><br><span class="line">                        resource = child.getStringAttribute(<span class="string">"name"</span>);</span><br><span class="line">                        <span class="keyword">this</span>.configuration.addMappers(resource);</span><br><span class="line">                    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                        resource = child.getStringAttribute(<span class="string">"resource"</span>);</span><br><span class="line">                        String url = child.getStringAttribute(<span class="string">"url"</span>);</span><br><span class="line">                        String mapperClass = child.getStringAttribute(<span class="string">"class"</span>);</span><br><span class="line">                        XMLMapperBuilder mapperParser;</span><br><span class="line">                        InputStream inputStream;</span><br><span class="line">                        <span class="keyword">if</span> (resource != <span class="keyword">null</span> &amp;&amp; url == <span class="keyword">null</span> &amp;&amp; mapperClass == <span class="keyword">null</span>) &#123;</span><br><span class="line"><span class="comment">//...没截全</span></span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>该方法判断是package还是mapper标签，然后读取进Configuration对象，具体怎么读呢?以packeage为例</p>
+<ol start="4">
+<li>读取package的代码如下<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (<span class="string">"package"</span>.equals(child.getName())) &#123;</span><br><span class="line">                        resource = child.getStringAttribute(<span class="string">"name"</span>);</span><br><span class="line">                        <span class="keyword">this</span>.configuration.addMappers(resource);</span><br><span class="line">                    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>resource获得包名后，调用addMappers，有多个重载，最终调用到参数类型为String packageName, Class&lt;?&gt; superType的addMappers<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addMappers</span><span class="params">(String packageName)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.mapperRegistry.addMappers(packageName);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addMappers</span><span class="params">(String packageName)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>.addMappers(packageName, Object<span class="class">.<span class="keyword">class</span>)</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<ol start="5">
+<li>最终调用的addMappers方法<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addMappers</span><span class="params">(String packageName, Class&lt;?&gt; superType)</span> </span>&#123;<span class="comment">//最终调用到这个addMapper方法</span></span><br><span class="line">        ResolverUtil&lt;Class&lt;?&gt;&gt; resolverUtil = <span class="keyword">new</span> ResolverUtil();</span><br><span class="line">        resolverUtil.find(<span class="keyword">new</span> IsA(superType), packageName);</span><br><span class="line">        Set&lt;Class&lt;? extends Class&lt;?&gt;&gt;&gt; mapperSet = resolverUtil.getClasses();</span><br><span class="line">        Iterator var5 = mapperSet.iterator();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span>(var5.hasNext()) &#123;</span><br><span class="line">            Class&lt;?&gt; mapperClass = (Class)var5.next();</span><br><span class="line">            <span class="keyword">this</span>.addMapper(mapperClass);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>其中find方法去找当前工程有无该包，若有，经过匹配后，会加入到该resolverUtil中的Set对象中，通过getClasses得到该添加完毕的set对象。调用自身参数类型为Class<t> type的addMapper方法，进入该addMapper方法</t></p>
+<ol start="6">
+<li>自身参数类型为Class<t> type的addMapper方法如下<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> &lt;T&gt; <span class="function"><span class="keyword">void</span> <span class="title">addMapper</span><span class="params">(Class&lt;T&gt; type)</span> </span>&#123;</span><br><span class="line">      <span class="keyword">if</span> (type.isInterface()) &#123;</span><br><span class="line">          <span class="keyword">if</span> (<span class="keyword">this</span>.hasMapper(type)) &#123;</span><br><span class="line">              <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"Type "</span> + type + <span class="string">" is already known to the MapperRegistry."</span>);</span><br><span class="line">          &#125;</span><br><span class="line">          <span class="keyword">boolean</span> loadCompleted = <span class="keyword">false</span>;</span><br><span class="line">          <span class="keyword">try</span> &#123;</span><br><span class="line">              <span class="keyword">this</span>.knownMappers.put(type, <span class="keyword">new</span> MapperProxyFactory(type));<span class="comment">//准备加载的Class对象的map</span></span><br><span class="line">              MapperAnnotationBuilder parser = <span class="keyword">new</span> MapperAnnotationBuilder(<span class="keyword">this</span>.config, type);</span><br><span class="line">              parser.parse();</span><br><span class="line">              loadCompleted = <span class="keyword">true</span>;<span class="comment">//加载完成，继续放在该map中</span></span><br><span class="line">          &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">              <span class="keyword">if</span> (!loadCompleted) &#123;<span class="comment">//加载未完成，从该map中移除出去</span></span><br><span class="line">                  <span class="keyword">this</span>.knownMappers.remove(type);</span><br><span class="line">              &#125;</span><br><span class="line">          &#125;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+</t></li>
+</ol>
+<p>可以看到，最终通过MapperAnnotationBuilder.parser完成解析，从名称上Mapper注解的构建解析，解析过程肯定在这里，进去看看</p>
+<ol start="7">
+<li>具体的MapperAnnotationBuilder.parser方法，<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        String resource = <span class="keyword">this</span>.type.toString();</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(resource)) &#123;<span class="comment">//已加载过则不执行</span></span><br><span class="line">            <span class="keyword">this</span>.loadXmlResource();<span class="comment">//加载寻找package对应的xml文件，有的话，则加载。没有则执行完向下</span></span><br><span class="line">            <span class="keyword">this</span>.configuration.addLoadedResource(resource);<span class="comment">//里面是Set，表示已加载的resource</span></span><br><span class="line">            <span class="keyword">this</span>.assistant.setCurrentNamespace(<span class="keyword">this</span>.type.getName());</span><br><span class="line">            <span class="keyword">this</span>.parseCache();<span class="comment">//解析缓存</span></span><br><span class="line">            <span class="keyword">this</span>.parseCacheRef();</span><br><span class="line">            Method[] methods = <span class="keyword">this</span>.type.getMethods();</span><br><span class="line">            Method[] var3 = methods;</span><br><span class="line">            <span class="keyword">int</span> var4 = methods.length;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">for</span>(<span class="keyword">int</span> var5 = <span class="number">0</span>; var5 &lt; var4; ++var5) &#123;</span><br><span class="line">                Method method = var3[var5];</span><br><span class="line"></span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    <span class="keyword">if</span> (!method.isBridge()) &#123;</span><br><span class="line">                        <span class="keyword">this</span>.parseStatement(method);<span class="comment">//如果读取了xml文件不会进入，未读，则在该方法中去类中读取注解</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; <span class="keyword">catch</span> (IncompleteElementException var8) &#123;</span><br><span class="line">                    <span class="keyword">this</span>.configuration.addIncompleteMethod(<span class="keyword">new</span> MethodResolver(<span class="keyword">this</span>, method));</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>.parsePendingMethods();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>其中有loadXmlResource方法，装载xml文件，装载什么配置文件呢，主配置文件装载过了，显然是映射的配置文件，进去看看</p>
+<ol start="8">
+<li>loadXmlResource代码如下<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">loadXmlResource</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(<span class="string">"namespace:"</span> + <span class="keyword">this</span>.type.getName())) &#123;</span><br><span class="line">            String xmlResource = <span class="keyword">this</span>.type.getName().replace(<span class="string">'.'</span>, <span class="string">'/'</span>) + <span class="string">".xml"</span>;<span class="comment">//将配置文件中package配的/换成. ，得到对应的xml的文件名称(这就是为什么文件名称要统一的原因)</span></span><br><span class="line">            InputStream inputStream = <span class="keyword">null</span>;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                inputStream = Resources.getResourceAsStream(<span class="keyword">this</span>.type.getClassLoader(), xmlResource);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (IOException var4) &#123;</span><br><span class="line">                ;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (inputStream != <span class="keyword">null</span>) &#123;<span class="comment">//读取到对应的配置文件</span></span><br><span class="line">                XMLMapperBuilder xmlParser = <span class="keyword">new</span> XMLMapperBuilder(inputStream, <span class="keyword">this</span>.assistant.getConfiguration(), xmlResource, <span class="keyword">this</span>.configuration.getSqlFragments(), <span class="keyword">this</span>.type.getName());</span><br><span class="line">                xmlParser.parse();<span class="comment">//进行解析</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>我们可以看到在这里会将配置文件中package配的”.”换成”/ “，得到对应的xml的文件名称(这就是为什么文件名称要统一的原因)，读取了该文件调用了xmlParser.parse()方法</p>
+<ol start="9">
+<li><p>xmlParser.parse()方法具体解析过程如下<br>*1.parse进行具体解析，代码如下，可以看到有个configurationElement方法读取了xml里mapper的sql信息，怎么读取的呢?</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(<span class="keyword">this</span>.resource)) &#123;</span><br><span class="line">            <span class="keyword">this</span>.configurationElement(<span class="keyword">this</span>.parser.evalNode(<span class="string">"/mapper"</span>));<span class="comment">//读取到mapper标签的内容进行具体解析，这个方法将参数换成了占位符!!!重要</span></span><br><span class="line">            <span class="keyword">this</span>.configuration.addLoadedResource(<span class="keyword">this</span>.resource);<span class="comment">//加入到已读map中</span></span><br><span class="line">            <span class="keyword">this</span>.bindMapperForNamespace();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>.parsePendingResultMaps();</span><br><span class="line">        <span class="keyword">this</span>.parsePendingCacheRefs();</span><br><span class="line">        <span class="keyword">this</span>.parsePendingStatements();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p> *2.进入configurationElement方法，代码如下，其中的buildStatementFromContext方法中读取了具体的sql操作的标签信息，进buildStatementFromContext看看</p>
+</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">configurationElement</span><span class="params">(XNode context)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;<span class="comment">//获取对应参数</span></span><br><span class="line">            String namespace = context.getStringAttribute(<span class="string">"namespace"</span>);<span class="comment">//获取命名空间</span></span><br><span class="line">            <span class="keyword">if</span> (namespace != <span class="keyword">null</span> &amp;&amp; !namespace.equals(<span class="string">""</span>)) &#123;</span><br><span class="line">                <span class="keyword">this</span>.builderAssistant.setCurrentNamespace(namespace);</span><br><span class="line">                <span class="keyword">this</span>.cacheRefElement(context.evalNode(<span class="string">"cache-ref"</span>));<span class="comment">//获取缓存信息</span></span><br><span class="line">                <span class="keyword">this</span>.cacheElement(context.evalNode(<span class="string">"cache"</span>));</span><br><span class="line">                <span class="keyword">this</span>.parameterMapElement(context.evalNodes(<span class="string">"/mapper/parameterMap"</span>));/</span><br><span class="line">                <span class="keyword">this</span>.resultMapElements(context.evalNodes(<span class="string">"/mapper/resultMap"</span>));</span><br><span class="line">                <span class="keyword">this</span>.sqlElement(context.evalNodes(<span class="string">"/mapper/sql"</span>));<span class="comment">//获取动态sql标签</span></span><br><span class="line">                <span class="keyword">this</span>.buildStatementFromContext(context.evalNodes(<span class="string">"select|insert|update|delete"</span>));<span class="comment">//具体的读取sql！！！</span></span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Mapper's namespace cannot be empty"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var3) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Error parsing Mapper XML. The XML location is '"</span> + <span class="keyword">this</span>.resource + <span class="string">"'. Cause: "</span> + var3, var3);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*3.追踪进buildStatementFromContext方法中，代码如下    
+</code></pre><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">buildStatementFromContext</span><span class="params">(List&lt;XNode&gt; list)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.configuration.getDatabaseId() != <span class="keyword">null</span>) &#123;<span class="comment">//获取数据库的配置信息，不为null，则从Configuration中读取</span></span><br><span class="line">            <span class="keyword">this</span>.buildStatementFromContext(list, <span class="keyword">this</span>.configuration.getDatabaseId());</span><br><span class="line">        &#125;<span class="comment">//null时，传入null</span></span><br><span class="line">        <span class="keyword">this</span>.buildStatementFromContext(list, (String)<span class="keyword">null</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*4.继续进入buildStatementFromContext方法中，名字上可以看出是创建Statement对象从Context中(应该是指写在xml中的sql语句)，在该方法中有一个statementParser.parseStatementNode()方法值得注意
+</code></pre><p>(看到了熟悉的Statement)<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">buildStatementFromContext</span><span class="params">(List&lt;XNode&gt; list, String requiredDatabaseId)</span> </span>&#123;</span><br><span class="line">        Iterator var3 = list.iterator();</span><br><span class="line">        <span class="keyword">while</span>(var3.hasNext()) &#123;<span class="comment">//获得单个的XNode</span></span><br><span class="line">            XNode context = (XNode)var3.next();</span><br><span class="line">            XMLStatementBuilder statementParser = <span class="keyword">new</span> XMLStatementBuilder(<span class="keyword">this</span>.configuration, <span class="keyword">this</span>.builderAssistant, context, requiredDatabaseId);</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                statementParser.parseStatementNode();<span class="comment">//进行解析！！！</span></span><br><span class="line">            &#125; <span class="keyword">catch</span> (IncompleteElementException var7) &#123;</span><br><span class="line">                <span class="keyword">this</span>.configuration.addIncompleteStatement(statementParser);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<pre><code>*5.进入statementParser.parseStatementNode方法，很多熟悉的配方，答案不远了
+</code></pre><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parseStatementNode</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        String id = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"id"</span>);</span><br><span class="line">        String databaseId = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"databaseId"</span>);</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.databaseIdMatchesCurrent(id, databaseId, <span class="keyword">this</span>.requiredDatabaseId)) &#123;</span><br><span class="line">            Integer fetchSize = <span class="keyword">this</span>.context.getIntAttribute(<span class="string">"fetchSize"</span>);</span><br><span class="line">            Integer timeout = <span class="keyword">this</span>.context.getIntAttribute(<span class="string">"timeout"</span>);</span><br><span class="line">            String parameterMap = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"parameterMap"</span>);</span><br><span class="line">            String parameterType = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"parameterType"</span>);</span><br><span class="line">            Class&lt;?&gt; parameterTypeClass = <span class="keyword">this</span>.resolveClass(parameterType);</span><br><span class="line">            String resultMap = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultMap"</span>);</span><br><span class="line">            String resultType = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultType"</span>);</span><br><span class="line">            String lang = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"lang"</span>);</span><br><span class="line">            LanguageDriver langDriver = <span class="keyword">this</span>.getLanguageDriver(lang);</span><br><span class="line">            Class&lt;?&gt; resultTypeClass = <span class="keyword">this</span>.resolveClass(resultType);</span><br><span class="line">            String resultSetType = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultSetType"</span>);</span><br><span class="line">            StatementType statementType = StatementType.valueOf(<span class="keyword">this</span>.context.getStringAttribute(<span class="string">"statementType"</span>, StatementType.PREPARED.toString()));</span><br><span class="line">            ResultSetType resultSetTypeEnum = <span class="keyword">this</span>.resolveResultSetType(resultSetType);</span><br><span class="line">            String nodeName = <span class="keyword">this</span>.context.getNode().getNodeName();</span><br><span class="line">            SqlCommandType sqlCommandType = SqlCommandType.valueOf(nodeName.toUpperCase(Locale.ENGLISH));</span><br><span class="line">            <span class="keyword">boolean</span> isSelect = sqlCommandType == SqlCommandType.SELECT;</span><br><span class="line">            <span class="keyword">boolean</span> flushCache = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"flushCache"</span>, !isSelect);</span><br><span class="line">            <span class="keyword">boolean</span> useCache = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"useCache"</span>, isSelect);</span><br><span class="line">            <span class="keyword">boolean</span> resultOrdered = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"resultOrdered"</span>, <span class="keyword">false</span>);</span><br><span class="line">            XMLIncludeTransformer includeParser = <span class="keyword">new</span> XMLIncludeTransformer(<span class="keyword">this</span>.configuration, <span class="keyword">this</span>.builderAssistant);</span><br><span class="line">            includeParser.applyIncludes(<span class="keyword">this</span>.context.getNode());</span><br><span class="line">            <span class="keyword">this</span>.processSelectKeyNodes(id, parameterTypeClass, langDriver);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">            SqlSource sqlSource = langDriver.createSqlSource(<span class="keyword">this</span>.configuration, <span class="keyword">this</span>.context, parameterTypeClass);<span class="comment">//SqlSource(sql语句来源），这里调用了一个createSqlSource方法</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">            String resultSets = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"resultSets"</span>);</span><br><span class="line">            String keyProperty = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"keyProperty"</span>);</span><br><span class="line">            String keyColumn = <span class="keyword">this</span>.context.getStringAttribute(<span class="string">"keyColumn"</span>);</span><br><span class="line">            String keyStatementId = id + <span class="string">"!selectKey"</span>;</span><br><span class="line">            keyStatementId = <span class="keyword">this</span>.builderAssistant.applyCurrentNamespace(keyStatementId, <span class="keyword">true</span>);</span><br><span class="line">            Object keyGenerator;</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">this</span>.configuration.hasKeyGenerator(keyStatementId)) &#123;</span><br><span class="line">                keyGenerator = <span class="keyword">this</span>.configuration.getKeyGenerator(keyStatementId);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                keyGenerator = <span class="keyword">this</span>.context.getBooleanAttribute(<span class="string">"useGeneratedKeys"</span>, <span class="keyword">this</span>.configuration.isUseGeneratedKeys() &amp;&amp; SqlCommandType.INSERT.equals(sqlCommandType)) ? Jdbc3KeyGenerator.INSTANCE : NoKeyGenerator.INSTANCE;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">this</span>.builderAssistant.addMappedStatement(id, sqlSource, statementType, sqlCommandType, fetchSize, timeout, parameterMap, parameterTypeClass, resultMap, resultTypeClass, resultSetTypeEnum, flushCache, useCache, resultOrdered, (KeyGenerator)keyGenerator, keyProperty, keyColumn, databaseId, langDriver, resultSets);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>发现有个方法createSqlSource，看名字就是创建sqlSource</p>
+<blockquote>
+<p>当parseStatementNode方法执行完毕时，会将结果放到MappedStatement里,即配置文件中所有的mapper信息读取完毕</p>
+<p>MappedStatement中存放的信息</p>
+</blockquote>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">MappedStatement</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> String resource;</span><br><span class="line">    <span class="keyword">private</span> Configuration configuration;</span><br><span class="line">    <span class="keyword">private</span> String id;</span><br><span class="line">    <span class="keyword">private</span> Integer fetchSize;</span><br><span class="line">    <span class="keyword">private</span> Integer timeout;</span><br><span class="line">    <span class="keyword">private</span> StatementType statementType;</span><br><span class="line">    <span class="keyword">private</span> ResultSetType resultSetType;</span><br><span class="line">    <span class="keyword">private</span> SqlSource sqlSource;</span><br><span class="line">    <span class="keyword">private</span> Cache cache;</span><br><span class="line">    <span class="keyword">private</span> ParameterMap parameterMap;</span><br><span class="line">    <span class="keyword">private</span> List&lt;ResultMap&gt; resultMaps;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> flushCacheRequired;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> useCache;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> resultOrdered;</span><br><span class="line">    <span class="keyword">private</span> SqlCommandType sqlCommandType;</span><br><span class="line">    <span class="keyword">private</span> KeyGenerator keyGenerator;</span><br><span class="line">    <span class="keyword">private</span> String[] keyProperties;</span><br><span class="line">    <span class="keyword">private</span> String[] keyColumns;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">boolean</span> hasNestedResultMaps;</span><br><span class="line">    <span class="keyword">private</span> String databaseId;</span><br><span class="line">    <span class="keyword">private</span> Log statementLog;</span><br><span class="line">    <span class="keyword">private</span> LanguageDriver lang;</span><br><span class="line">    <span class="keyword">private</span> String[] resultSets;</span><br></pre></td></tr></table></figure>
+<pre><code>*6. 通过debug，进入到一个名为XMLLanguageDriver的类中的createSqlSource
+</code></pre><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSource <span class="title">createSqlSource</span><span class="params">(Configuration configuration, XNode script, Class&lt;?&gt; parameterType)</span> </span>&#123;</span><br><span class="line">        XMLScriptBuilder builder = <span class="keyword">new</span> XMLScriptBuilder(configuration, script, parameterType);</span><br><span class="line">        <span class="keyword">return</span> builder.parseScriptNode();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*7.打开builder.parseScriptNode()方法,可以看到在这里开始判断使用哪种解析方式，是动态还是非动态
+</code></pre><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSource <span class="title">parseScriptNode</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        MixedSqlNode rootSqlNode = <span class="keyword">this</span>.parseDynamicTags(<span class="keyword">this</span>.context);</span><br><span class="line">        SqlSource sqlSource = <span class="keyword">null</span>;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">this</span>.isDynamic) &#123;<span class="comment">//判断是否为动态sql，是则调用</span></span><br><span class="line">            sqlSource = <span class="keyword">new</span> DynamicSqlSource(<span class="keyword">this</span>.configuration, rootSqlNode);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            sqlSource = <span class="keyword">new</span> RawSqlSource(<span class="keyword">this</span>.configuration, rootSqlNode, <span class="keyword">this</span>.parameterType);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> (SqlSource)sqlSource;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<pre><code>*8.打开RawSqlSource方法
+</code></pre><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">RawSqlSource</span><span class="params">(Configuration configuration, SqlNode rootSqlNode, Class&lt;?&gt; parameterType)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">this</span>(configuration, getSql(configuration, rootSqlNode), parameterType);</span><br><span class="line">    &#125;<span class="comment">//getSql(configuration, rootSqlNode)从名称可以得知，从配置对象，和读取的结点信息获取String类型的sql对象</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">RawSqlSource</span><span class="params">(Configuration configuration, String sql, Class&lt;?&gt; parameterType)</span> </span>&#123;</span><br><span class="line">        SqlSourceBuilder sqlSourceParser = <span class="keyword">new</span> SqlSourceBuilder(configuration);</span><br><span class="line">        Class&lt;?&gt; clazz = parameterType == null ? Object.class : parameterType;</span><br><span class="line">        <span class="keyword">this</span>.sqlSource = sqlSourceParser.parse(sql, clazz, <span class="keyword">new</span> HashMap());</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>调用的是第一个构造方法，在该构造方法中又调用第二个构造方法，来创建RawSqlSource对象，在第二个构造方法中有sqlSourceParser.parse方法，很接近答案了<br>    *9.跟进sqlSourceParser.parse方法中<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> SqlSource <span class="title">parse</span><span class="params">(String originalSql, Class&lt;?&gt; parameterType, Map&lt;String, Object&gt; additionalParameters)</span> </span>&#123;</span><br><span class="line">        SqlSourceBuilder.ParameterMappingTokenHandler handler = <span class="keyword">new</span> SqlSourceBuilder.ParameterMappingTokenHandler(<span class="keyword">this</span>.configuration, parameterType, additionalParameters);</span><br><span class="line">        GenericTokenParser parser = <span class="keyword">new</span> GenericTokenParser(<span class="string">"#&#123;"</span>, <span class="string">"&#125;"</span>, handler);</span><br><span class="line">        String sql = parser.parse(originalSql);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> StaticSqlSource(<span class="keyword">this</span>.configuration, sql, handler.getParameterMappings());</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>可以看到mybaits在这里把#{,}切开来进行了替换，看最后的返回值为 return new StaticSqlSource(this.configuration, sql, handler.getParameterMappings());  根据名称可以知道一个是配置对象，一个是替换后的sql语句，一个是原先在#{}中的参数信息的集合，可以推出ParameterMappingTokenHandler对象应该是用于参数的存放<br><strong>第一个问题差不多就算是明白了，下一个问题</strong></p>
+<h3 id="2-第二个问题"><a href="#2-第二个问题" class="headerlink" title="2.第二个问题"></a>2.第二个问题</h3><ol>
+<li><p>回到MapperAnnotationBuilder的parse方法，当没有加载到对应的xml文件时，继续向下执行，在try，catch中，有一个if判断，如果读取了xml文件不会进入，未读，则调用parseStatement方法中去类中读取注解</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">parse</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        String resource = <span class="keyword">this</span>.type.toString();</span><br><span class="line">        <span class="keyword">if</span> (!<span class="keyword">this</span>.configuration.isResourceLoaded(resource)) &#123;<span class="comment">//已加载过则不执行</span></span><br><span class="line">            <span class="keyword">this</span>.loadXmlResource();<span class="comment">//加载寻找package对应的xml文件，有的话，则加载。没有则执行完向下</span></span><br><span class="line">            <span class="keyword">this</span>.configuration.addLoadedResource(resource);<span class="comment">//里面是Set，表示已加载的resource</span></span><br><span class="line">            <span class="keyword">this</span>.assistant.setCurrentNamespace(<span class="keyword">this</span>.type.getName());</span><br><span class="line">            <span class="keyword">this</span>.parseCache();<span class="comment">//解析缓存</span></span><br><span class="line">            <span class="keyword">this</span>.parseCacheRef();</span><br><span class="line">            Method[] methods = <span class="keyword">this</span>.type.getMethods();</span><br><span class="line">            Method[] var3 = methods;</span><br><span class="line">            <span class="keyword">int</span> var4 = methods.length;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">for</span>(<span class="keyword">int</span> var5 = <span class="number">0</span>; var5 &lt; var4; ++var5) &#123;</span><br><span class="line">                Method method = var3[var5];</span><br><span class="line">                <span class="keyword">try</span> &#123;</span><br><span class="line">                    <span class="keyword">if</span> (!method.isBridge()) &#123;</span><br><span class="line">                        <span class="keyword">this</span>.parseStatement(method);<span class="comment">//如果读取了xml文件不会进入，未读，则在该方法中去类中读取注解</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125; <span class="keyword">catch</span> (IncompleteElementException var8) &#123;</span><br><span class="line">                    <span class="keyword">this</span>.configuration.addIncompleteMethod(<span class="keyword">new</span> MethodResolver(<span class="keyword">this</span>, method));</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>.parsePendingMethods();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>进入parseStatement方法</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">parseStatement</span><span class="params">(Method method)</span> </span>&#123;</span><br><span class="line">        Class&lt;?&gt; parameterTypeClass = <span class="keyword">this</span>.getParameterType(method);</span><br><span class="line">        LanguageDriver languageDriver = <span class="keyword">this</span>.getLanguageDriver(method);</span><br><span class="line">        SqlSource sqlSource = <span class="keyword">this</span>.getSqlSourceFromAnnotations(method, parameterTypeClass, languageDriver);</span><br><span class="line">        <span class="keyword">if</span> (sqlSource != <span class="keyword">null</span>) &#123;<span class="comment">//没截全</span></span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>仔细看有一个getSqlSourceFromAnnotations方法，获取SqlSource对象从注解中<br>3.进入getSqlSourceFromAnnotations方法,可以看到开始获得注解信息<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> SqlSource <span class="title">getSqlSourceFromAnnotations</span><span class="params">(Method method, Class&lt;?&gt; parameterType, LanguageDriver languageDriver)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Class&lt;? extends Annotation&gt; sqlAnnotationType = <span class="keyword">this</span>.getSqlAnnotationType(method);</span><br><span class="line">            Class&lt;? extends Annotation&gt; sqlProviderAnnotationType = <span class="keyword">this</span>.getSqlProviderAnnotationType(method);</span><br><span class="line">            Annotation sqlProviderAnnotation;</span><br><span class="line">            <span class="keyword">if</span> (sqlAnnotationType != <span class="keyword">null</span>) &#123;</span><br><span class="line">                <span class="keyword">if</span> (sqlProviderAnnotationType != <span class="keyword">null</span>) &#123;</span><br><span class="line">                    <span class="keyword">throw</span> <span class="keyword">new</span> BindingException(<span class="string">"You cannot supply both a static SQL and SqlProvider to method named "</span> + method.getName());</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    sqlProviderAnnotation = method.getAnnotation(sqlAnnotationType);</span><br><span class="line">                    String[] strings = (String[])((String[])sqlProviderAnnotation.getClass().getMethod(<span class="string">"value"</span>).invoke(sqlProviderAnnotation));</span><br><span class="line">                    <span class="keyword">return</span> <span class="keyword">this</span>.buildSqlSourceFromStrings(strings, parameterType, languageDriver);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (sqlProviderAnnotationType != <span class="keyword">null</span>) &#123;</span><br><span class="line">                sqlProviderAnnotation = method.getAnnotation(sqlProviderAnnotationType);</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">new</span> ProviderSqlSource(<span class="keyword">this</span>.assistant.getConfiguration(), sqlProviderAnnotation, <span class="keyword">this</span>.type, method);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception var8) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> BuilderException(<span class="string">"Could not find value method on SQL annotation.  Cause: "</span> + var8, var8);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>搞定收工!</strong></p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2019/01/26/mybatis-缓存/" rel="next" title="mybatis 缓存">
+                <i class="fa fa-chevron-left"></i> mybatis 缓存
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2019/02/27/源码分析 mybatis SQL执行流程及参数绑定过程/" rel="prev" title="源码分析 mybatis SQL执行流程及参数绑定过程">
+                源码分析 mybatis SQL执行流程及参数绑定过程 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            Übersicht
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/cat.png" alt="GuoT">
+            
+              <p class="site-author-name" itemprop="name">GuoT</p>
+              <p class="site-description motion-element" itemprop="description"></p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives">
+                
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">Artikel</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">10</span>
+                    <span class="site-state-item-name">Kategorien</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">5</span>
+                    <span class="site-state-item-name">Tags</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一-简单执行流程"><span class="nav-text">一.简单执行流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二-疑惑"><span class="nav-text">二.疑惑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三-解决"><span class="nav-text">三.解决</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-第一个问题"><span class="nav-text">1.第一个问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-第二个问题"><span class="nav-text">2.第二个问题</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">GuoT</span>
+
+  
+
+  
+</div>
+
+<!--
+
+  <div class="powered-by">Erstellt mit  <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> v3.9.0</div> 
+
+ -->
+
+
+  <span class="post-meta-divider">|</span>
+
+
+<!--
+
+  <div class="theme-info">Theme – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+-->
+
+
+<span id="busuanzi_container_site_pv">本站总访问量<span id="busuanzi_value_site_pv"></span>次</span>
+<span class="post-meta-divider">|</span>
+<span id="busuanzi_container_site_uv">本站访客数<span id="busuanzi_value_site_uv"></span>人</span>
+
+
+
+<div class="theme-info">
+  <div class="powered-by"></div>
+  <span class="post-count">博客全站共13.8k字</span>
+</div>
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+          <span id="scrollpercent"><span>0</span>%</span>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+	
+<script type="text/javascript" src="//cdn.bootcss.com/canvas-nest.js/1.0.0/canvas-nest.min.js"></script>
+
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+    
+  
+  <script color="0,0,255" opacity="0.5" zindex="-1" count="99" src="/lib/canvas-nest/canvas-nest.min.js"></script>
+
+
+
+
+
+  
+  
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/three/three.min.js"></script>
+
+  
+  <script src="/lib/three/canvas_lines.min.js"></script>
+
+  
+  <script src="/lib/reading_progress/reading_progress.js"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+</body>
+</html>
