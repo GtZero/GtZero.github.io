@@ -1,6 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>一直疑惑的Unicode字符集</title>
+    <url>/2020/02/18/Unicode%E5%AD%97%E7%AC%A6%E9%9B%86/</url>
+    <content><![CDATA[<h1 id="记录九-Unicode字符集"><a href="#记录九-Unicode字符集" class="headerlink" title="记录九. Unicode字符集"></a>记录九. Unicode字符集</h1><p>[TOC]</p>
+<blockquote>
+<p><a href="https://xiaogd.net/category/%e5%ad%97%e7%ac%a6%e9%9b%86%e7%bc%96%e7%a0%81%e4%b8%8e%e4%b9%b1%e7%a0%81/page/4/" target="_blank" rel="noopener">参考1</a><br><a href="https://blog.csdn.net/qweewqpkn/article/details/50194441" target="_blank" rel="noopener">参考2</a></p>
+</blockquote>
+<h2 id="一-字符集与编码"><a href="#一-字符集与编码" class="headerlink" title="一. 字符集与编码"></a>一. 字符集与编码</h2><p><strong>严格意义上: 两个不同层面的概念</strong><br><a id="more"></a></p>
+<ul>
+<li>charset 是 character set 的简写，即<strong>字符集</strong>。完成字符到数字的对应</li>
+<li>encoding 是 charset encoding 的简写，即<strong>字符集编码</strong>，简称<strong>编码</strong>。完成数字到具体的二进制编码</li>
+</ul>
+<blockquote>
+<p>如果数字到具体的二进制编码，形式只有一种。即字符集与编码为一对一情形，则混为一谈，也都清楚是一个东西</p>
+</blockquote>
+<h2 id="二-Unicode与UTF编码-Unicode-Transformation-Format"><a href="#二-Unicode与UTF编码-Unicode-Transformation-Format" class="headerlink" title="二. Unicode与UTF编码(Unicode Transformation Format)"></a>二. Unicode与UTF编码(Unicode Transformation Format)</h2><blockquote>
+<p>Unicode字符集，UTF-8 -16 -32 是同一种字符集的不同编码实现</p>
+</blockquote>
+<h3 id="1-Unicode-整个编码过程"><a href="#1-Unicode-整个编码过程" class="headerlink" title="1. Unicode 整个编码过程"></a>1. Unicode 整个编码过程</h3><p><strong>存在的两个层面</strong>: 字符 –&gt; 码点 –&gt; 具体编码(即具体的二进制数)<br><img src="\cttImages\image-20200307163046170.png" alt="image-20200307163046170" style="zoom:80%;"></p>
+<h3 id="2-涉及的概念"><a href="#2-涉及的概念" class="headerlink" title="2. 涉及的概念"></a>2. 涉及的概念</h3><h4 id="2-1-码点"><a href="#2-1-码点" class="headerlink" title="2.1. 码点"></a>2.1. 码点</h4><p><strong>1. 简单说明</strong>: 码点是一种抽象的数学编号</p>
+<p><strong>2. 码点的表示形式与范围</strong></p>
+<ul>
+<li>U+[XX]XXXX 是码点的表示形式，X 代表一个十六制数字，可以有 4-6 位，不足 4 位前补 0 补足 4 位，超过则按是几位就是几位</li>
+<li>它的范围目前是 U+0000 ~ U+10FFFF，理论大小为 10FFFF+1=110000(十六进制)，而FFFF + 1 = 10000，为65536个数，则总范围为 (16 + 1) * 65536 粗略等于 102万</li>
+<li>按Unicode官方说法，码点范围就这些，以后也不会再扩充</li>
+</ul>
+<p><strong>3. 平面</strong>: 将前面的17 * 65536大小的部分，每个65536分为一个字符平面，编号从0开始<br><img src="\cttImages\image-20200307163122697.png" alt="image-20200307163122697" style="zoom:70%;"></p>
+<ul>
+<li>第一个平面称为<strong>BMP (Basic Multilingual Plane 基本多语言平面)</strong> ，也叫plane 0。码点范围在U+0000 ~ U+FFFF，日常使用的字符绝大多数都落在这个平面</li>
+<li>其余十六个平面称为<strong>SP(Supplementary Planes) 增补平面</strong></li>
+</ul>
+<blockquote>
+<p>在第一个平面BMP中的字符，使用两个字节即可表示。我们的汉字在<strong>CJK统一汉字区域(CJK：Chinese, Japanese, and Korean，中日韩)</strong> </p>
+</blockquote>
+<p><strong>4. BMP鸟瞰图</strong>: 引出代理区概念<br><img src="\cttImages\image-20200307163153312.png" alt="image-20200307163153312" style="zoom:80%;"></p>
+<p><strong>5. 代理区(Surrogate Area)</strong>: 在鸟瞰图的空白部分属于代理区<br><img src="\cttImages\image-20200307163211428.png" alt="image-20200307163211428" style="zoom:80%;"></p>
+<ul>
+<li>红色部分 D800–DBFF 属于高代理区(High Surrogate Area)</li>
+<li>蓝色部分 DC00–DFFF 属于低代理区(Low Surrogate Area)</li>
+<li>各自的大小均为 4×256=1024</li>
+<li>这两个区域构成一个二维的表格，供1024 <em> 1024 = 16 </em> 65536，恰好表示16个增补平面的所有字符</li>
+<li>代理区的作用见下面 UTF-16 (构成代理对)</li>
+</ul>
+<p><img src="\cttImages\image-20200307163239577.png" alt="image-20200307163239577" style="zoom:80%;"> </p>
+<h4 id="2-2-UTF-8-16-32-具体编码"><a href="#2-2-UTF-8-16-32-具体编码" class="headerlink" title="2.2. UTF-8 -16 -32 具体编码"></a>2.2. UTF-8 -16 -32 具体编码</h4><blockquote>
+<p>第一版Unicode统一使用二字节编码，对ASCII 的字符多占一字符。据说是大牛倒腾除了UTF-8，来兼容</p>
+</blockquote>
+<p><strong>1. utf-8</strong></p>
+<ul>
+<li>变长的编码格式，可兼容ASCII。因为能兼容，所以国际广受欢迎</li>
+<li>由于是变长格式，为了在解析时不发生歧义，使用了高位作区分，so 在保存中文方面效率不算太好，GBK类的效率会更高，但国际上扩展空间不如 utf-8</li>
+<li><a href="https://xiaogd.net/%e5%ad%97%e7%ac%a6%e9%9b%86%e4%b8%8e%e7%bc%96%e7%a0%81%ef%bc%88%e5%9b%9b%ef%bc%89-unicode/#Unicode%20%E4%B8%AD%E7%9A%84%E7%A0%81%E7%82%B9%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F" target="_blank" rel="noopener">码点转成编码的规则</a></li>
+</ul>
+<p><img src="\cttImages\image-20200307163323239.png" alt="image-20200307163323239" style="zoom:67%;"> </p>
+<p><strong>2. utf-16</strong></p>
+<ul>
+<li>可两字节or四字节</li>
+<li>当字符的码点处于BMP内，则使用两字节</li>
+<li>其余字符，则使用4字节的代理对来编码</li>
+<li>由于早期第一版的Unicode的使用，这里utf-16也有一定范围的应用</li>
+</ul>
+<p><strong>3. utf-32</strong></p>
+<ul>
+<li>使用四字节表示，占用空间多，使用不广泛</li>
+<li><a href="https://www.jianshu.com/p/de309b73caf3" target="_blank" rel="noopener">Unicode码点最长就24位(3字节)，UTF-32给了4字节给了字符集非常大的扩展空间</a>, 这篇文章有描述</li>
+</ul>
+<p><strong>在增补平面的码点，到UTF-16四字节的转换</strong>: 使用代理对</p>
+<ul>
+<li>一个高代理区的行 加 一个低代理区的列 的编码即是一个代理对<br><img src="\cttImages\image-20200307163357781.png" alt="image-20200307163357781" style="zoom:80%;"></li>
+<li>增补平面的字符，对应的码元，会转成四字节的一对代码对</li>
+</ul>
+<h3 id="3-其他相关概念"><a href="#3-其他相关概念" class="headerlink" title="3. 其他相关概念"></a>3. 其他相关概念</h3><ul>
+<li>UCS-2 (Universal Character Set coded in 2 octets)，表示码点与编码字节数之间的关系</li>
+<li>UCS-4</li>
+</ul>
+<p><strong>字符集的发展历史</strong></p>
+<ul>
+<li>美国标准ASCII。1字节，0 ~ 127个数 128个字符</li>
+<li>由于1字节，还有1位可用。在兼容ASCII基础上，出现了OEM字符集(Original Equipment Manufacturer<br>原始设备制造商)，即不同供应商可能有不同字符集，出现了ISO8859-1 -3 等</li>
+<li>中文编码GB2312，兼容ASCII。GBK是对GB2312的扩展</li>
+<li>出现Unicode</li>
+</ul>
+<h3 id="4-语言相关-Java"><a href="#4-语言相关-Java" class="headerlink" title="4. 语言相关 Java"></a>4. 语言相关 Java</h3><p><strong>十六进制数的表示</strong></p>
+<ul>
+<li>整形表示十六进制数为0x开头</li>
+<li>字符表示十六进制数以 \u 开头。u为unicode</li>
+</ul>
+<p><strong>char、String类型</strong></p>
+<ul>
+<li>char采用了UTF-16的格式，对于超过BMP的字符保存时，会发生异常</li>
+<li>String类型是用char保存字符，<strong><a href="https://www.jianshu.com/p/957b249a02d8" target="_blank" rel="noopener">Java内部使用UTF-16作为内部编码方式</a></strong></li>
+</ul>
+<p><strong><a href="https://blog.csdn.net/u010297957/article/details/48495791" target="_blank" rel="noopener">证明char编码的代码</a></strong><br><img src="\cttImages\image-20200307163446428.png" alt="image-20200307163446428" style="zoom:67%;"></p>
+]]></content>
+      <categories>
+        <category>学习笔记</category>
+      </categories>
+  </entry>
+  <entry>
     <title>源码分析 JDK Future模式分析</title>
     <url>/2019/11/21/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90%20JDK%20Future%E6%A8%A1%E5%BC%8F/</url>
     <content><![CDATA[<h1 id="源码分析-JDK-Future模式分析"><a href="#源码分析-JDK-Future模式分析" class="headerlink" title="源码分析: JDK Future模式分析"></a>源码分析: JDK Future模式分析</h1><p>[TOC]</p>
@@ -10,6 +108,7 @@
 <li>ExecutorService接口:<br>继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值</li>
 <li>Callable接口可用于创建线程，call方法会有返回值且可抛出异常</li>
 </ol>
+<a id="more"></a>
 <p><strong>基本示意图</strong><br><img src="\cttImages\1573998581653.png" alt="1573998581653"></p>
 <h2 id="二-源码分析"><a href="#二-源码分析" class="headerlink" title="二.源码分析"></a>二.源码分析</h2><p><u><strong>线程通过submit提交，该线程的返回值是怎么放到Future中的?</strong></u></p>
 <p><strong>1. submit源码 — 摘自ExecutorService的实现类AbstractExecutorService(子类有ThreadPoolExecutor)</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="keyword">public</span> Future&lt;?&gt; submit(Runnable task) &#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;Void&gt; ftask = newTaskFor(task, <span class="keyword">null</span>);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Runnable task, T result)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;T&gt; ftask = newTaskFor(task, result);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Callable&lt;T&gt; task)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;T&gt; ftask = newTaskFor(task);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
@@ -110,12 +209,10 @@
 <p>当所有参数都判断之后,通过Collections.unmodifiableSortedMap(map)返回一个只读的Map容器赋值给names,同样存放着参数索引和    参数名的映射关系。此时MethodSignature初始化完毕</p>
 <blockquote>
 <p><strong>useActualParamName</strong>在<a href="https://www.cnblogs.com/yunqing/p/8065637.html" target="_blank" rel="noopener">3.4.1开始</a>可以配置true|false。<a href="https://blog.csdn.net/qq_33468239/article/details/72810058" target="_blank" rel="noopener">3.4.2之前为false。之后为true</a></p>
-<p>例子：<strong>这是在多个参数的时候，才会封装成map，return map。如果只有一个参数则直接返回该参数</strong><img src="D:\InviAir\hexo\public\cttImages\image-20191226201723181.png" alt="image-20191226201723181" style="zoom:67%;"><br><code>Employee findByIdAndNameWithGender(Integer id, @Param(&quot;myName&quot;)String name, String gender);</code></p>
+<p>例子：<strong>这是在多个参数的时候，才会封装成map，return map。如果只有一个参数则直接返回该参数</strong><img src="\cttImages\image-20191226201723181.png" alt="image-20191226201723181" style="zoom:67%;"><br><code>Employee findByIdAndNameWithGender(Integer id, @Param(&quot;myName&quot;)String name, String gender);</code></p>
 <ul>
-<li><p>当useActualParamName()为false时: <img src="D:\InviAir\hexo\public\cttImages\image-20191226191357174.png" alt="image-20191226191357174"><br>0 -&gt; “0”<br>1 -&gt; “myName”<br>2 -&gt; “2”  <img src="D:\InviAir\hexo\public\cttImages\image-20191226191322397.png" alt="image-20191226191322397"></p>
-</li>
-<li><p>当useActualParamName()为true时: <img src="D:\InviAir\hexo\public\cttImages\image-20191226191228811.png" alt="image-20191226191228811"><br>0 -&gt; “arg0”<br>1 -&gt; “myName”<br>2 -&gt;  “arg2”  <img src="D:\InviAir\hexo\public\cttImages\image-20191226185717234.png" alt="image-20191226185717234"> </p>
-</li>
+<li>当useActualParamName()为false时:<img src="\cttImages\image-20191226191357174.png"><br>0 -&gt; “0”<br>1 -&gt; “myName”<br>2 -&gt; “2”  <img src="\cttImages\image-20191226191322397.png"> </li>
+<li>当useActualParamName()为true时: <img src="\cttImages\image-20191226191228811.png"><br>0 -&gt; “arg0”<br>1 -&gt; “myName”<br>2 -&gt;  “arg2” <img src="\cttImages\image-20191226185717234.png"> </li>
 </ul>
 </blockquote>
 <h2 id="二-使用对应关系，绑定参数名与具体参数对象"><a href="#二-使用对应关系，绑定参数名与具体参数对象" class="headerlink" title="二.使用对应关系，绑定参数名与具体参数对象"></a>二.使用对应关系，绑定参数名与具体参数对象</h2><p>在之前的executeForMany中有这样的一个方法<br><code>Object param = this.method.convertArgsToSqlCommandParam(args);</code>具体代码如下</p>
@@ -125,7 +222,7 @@
 <li>根据GENERIC_NAME_PREFIX常量即”param”和当前的索引拼装成新的字符串,即param1,param2,…,paramN.然后和args数组里对应索引的值存储到Map容器param中</li>
 </ol>
 <blockquote>
-<p>上面举得例子得到的结果  <img src="D:\InviAir\hexo\public\cttImages\image-20191226185841103.png" alt="image-20191226185841103"> </p>
+<p>上面举得例子得到的结果  <img src="\cttImages\image-20191226185841103.png" alt="image-20191226185841103"> </p>
 </blockquote>
 <p>参考文章：<a href="https://blog.csdn.net/chenruicsdn/article/details/81370219，这篇博文有一定的错误" target="_blank" rel="noopener">https://blog.csdn.net/chenruicsdn/article/details/81370219，这篇博文有一定的错误</a></p>
 ]]></content>
@@ -246,170 +343,6 @@
         <category>源码分析</category>
         <category>mybatis</category>
       </categories>
-  </entry>
-  <entry>
-    <title>JDK8 新特性学习</title>
-    <url>/2019/07/23/JDK8%20%E6%96%B0%E7%89%B9%E6%80%A7/</url>
-    <content><![CDATA[<h1 id="附-JDK8-新特性"><a href="#附-JDK8-新特性" class="headerlink" title="附: JDK8 新特性"></a>附: JDK8 新特性</h1><p>[TOC]</p>
-<blockquote>
-<p>JDK1.8及之后，可以在接口中创建实例方法，default域！</p>
-</blockquote>
-<h2 id="一-Lambda表达式"><a href="#一-Lambda表达式" class="headerlink" title="一.Lambda表达式"></a>一.Lambda表达式</h2><h3 id="1-函数式接口"><a href="#1-函数式接口" class="headerlink" title="1. 函数式接口"></a>1. 函数式接口</h3><p>接口中只有一个抽象方法的接口。可以使用注解@FunctionalInterface 修饰来检查是否是函数式接口</p>
-<h3 id="2-功能"><a href="#2-功能" class="headerlink" title="2. 功能"></a>2. 功能</h3><p>可替代对函数式接口创建的匿名内部类，增加代码可读性</p>
-<blockquote>
-<ul>
-<li>jdk1.7及之前，匿名内部类中应用的局部变量，必须被final修饰(不可进行修改操作)。1.8及之后可省略，没加会默认添加</li>
-<li>Lambda表达式中同</li>
-</ul>
-</blockquote>
-<h3 id="3-基本语法"><a href="#3-基本语法" class="headerlink" title="3. 基本语法"></a>3. 基本语法</h3><ul>
-<li>操作符: -&gt;</li>
-<li>左侧: Lambda表达式的参数列表</li>
-<li>右侧(Lambda体): Lambda表达式中所需执行的功能</li>
-</ul>
-<h3 id="4-语法格式"><a href="#4-语法格式" class="headerlink" title="4. 语法格式"></a>4. 语法格式</h3><blockquote>
-<p>只有一条语句时，大括号可以省略。有返回值的接口，默认返回这一条语句的返回值</p>
-</blockquote>
-<ol>
-<li>接口无/多个参数、无返回值，语句多条<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">(无/参数个数) -&gt; &#123;语句; ...; 语句;&#125;</span><br></pre></td></tr></table></figure>
-</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Runnable runnable = () -&gt; &#123;</span><br><span class="line">            System.out.println(<span class="string">""</span>);</span><br><span class="line">            System.out.println(<span class="string">""</span>);</span><br><span class="line">        &#125;;</span><br></pre></td></tr></table></figure>
-<ol start="2">
-<li>接口无/多个参数、有返回值，语句多条<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">(无/参数个数) -&gt; &#123;语句; ...; <span class="keyword">return</span> 语句;&#125;</span><br></pre></td></tr></table></figure>
-</li>
-</ol>
-<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">Supplier&lt;String&gt; s = () -&gt; &#123;</span><br><span class="line">           System.out.println(<span class="string">""</span>);</span><br><span class="line">           System.out.println(<span class="string">""</span>);</span><br><span class="line">           <span class="keyword">return</span> <span class="string">""</span>;</span><br><span class="line">       &#125;;</span><br></pre></td></tr></table></figure>
-<h3 id="5-四大内置接口"><a href="#5-四大内置接口" class="headerlink" title="5. 四大内置接口"></a>5. 四大内置接口</h3><ol>
-<li>Consumer<t> : 消费型接口。<br><code>void accept(T t)</code></t></li>
-<li>Supplier<t> : 供给型接口<br><code>T get()</code></t></li>
-<li>Function&lt;T, R&gt; : 函数型接口<br><code>R apply(T t)</code></li>
-<li>Predicate<t> : 断言型接口<br><code>boolean test(T t)</code></t></li>
-</ol>
-<h2 id="二-方法引用"><a href="#二-方法引用" class="headerlink" title="二.方法引用"></a>二.方法引用</h2><h3 id="1-功能"><a href="#1-功能" class="headerlink" title="1.功能"></a>1.功能</h3><p>通过类名和方法名来定位一个静态方法或实例方法。用来简化替换lambda表达式的一种手段</p>
-<h3 id="2-注意项"><a href="#2-注意项" class="headerlink" title="2.注意项"></a>2.注意项</h3><ul>
-<li>Lambda体中调用方法的参数列表与返回类型，与函数式接口中抽象方法的函数列表和返回值一致(即Lambda体与接口方法一致)</li>
-</ul>
-<h3 id="3-语法格式"><a href="#3-语法格式" class="headerlink" title="3. 语法格式"></a>3. 语法格式</h3><h4 id="3-1-普通方法"><a href="#3-1-普通方法" class="headerlink" title="3.1.普通方法"></a>3.1.普通方法</h4><p><strong>1. 对象::实例方法名</strong></p>
-<p><strong>2. 类::静态方法名</strong></p>
-<p><strong>3. 类::实例方法名</strong><br>当要对参数的方法进行引用时使用。是用第一个参数的该方法<br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line">BiPredicate&lt;String, String&gt; bp = (x, y) -&gt; x.equals(y);</span><br><span class="line">     BiPredicate&lt;String, String&gt; bp2 = String::equals;</span><br></pre></td></tr></table></figure></p>
-<h4 id="3-2-构造方法"><a href="#3-2-构造方法" class="headerlink" title="3.2.构造方法"></a>3.2.构造方法</h4><h5 id="1-对象构造"><a href="#1-对象构造" class="headerlink" title="1.对象构造"></a>1.对象构造</h5><p><strong>格式</strong><br>ClassName :: new</p>
-<p><strong>构造方法</strong><br><figure class="highlight java"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">User</span><span class="params">()</span> </span>&#123;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="function"><span class="keyword">public</span> <span class="title">User</span><span class="params">(String id)</span> </span>&#123;</span><br><span class="line">       <span class="keyword">this</span>.id = id;</span><br><span class="line">   &#125;</span><br><span class="line"></span><br><span class="line">   <span class="function"><span class="keyword">public</span> <span class="title">User</span><span class="params">(String id, String name)</span> </span>&#123;</span><br><span class="line">       <span class="keyword">this</span>.id = id;</span><br><span class="line">       <span class="keyword">this</span>.name = name;</span><br><span class="line">   &#125;</span><br></pre></td></tr></table></figure></p>
-<blockquote>
-<p>用带返回值的函数式接口，参数列表要一致！返回值为类名</p>
-</blockquote>
-<p><strong>无参构造</strong><br><code>Supplier&lt;User&gt; sup = User::new;</code></p>
-<p><strong>带一个参数</strong><br><code>Function&lt;String, User&gt; fun = User::new;</code></p>
-<p><strong>两个参数</strong><br><code>BiFunction&lt;String, String, User&gt; bif = User::new;</code></p>
-<h5 id="2-数组构造"><a href="#2-数组构造" class="headerlink" title="2.数组构造"></a>2.数组构造</h5><p><strong>格式</strong><br>Type[] :: new</p>
-<p><strong>示例</strong><br><code>Function&lt;Integer, String[]&gt; fun2 = String[]::new;</code></p>
-<blockquote>
-<p>数组构造需要指定大小，所以需要传入参数，使用Function接口</p>
-</blockquote>
-<h3 id="4-补充-19-12-14"><a href="#4-补充-19-12-14" class="headerlink" title="4. 补充: 19.12.14"></a>4. 补充: 19.12.14</h3><ul>
-<li>lambda简化匿名内部类的代码</li>
-<li>方法引用简化lambda表达式，只是实现了流式接口里的方法</li>
-<li>方法引用没有显示写出对应的参数及返回值。对应的流式接口的参数，要和方法引用的参数对上</li>
-<li><p>关于类调用实例方法，是表明我要调用该类实例的这个实例方法。具体的调用者，是参数的那个对象<img src="\cttImages\image-20191219205036488.png" alt="image-20191219205036488" style="zoom: 80%;"></p>
-</li>
-<li><p>在这里表明调用User类的prin实例方法</p>
-</li>
-<li>实际上是调用传进来的User对象的prin方法</li>
-</ul>
-<h2 id="三-Stream流操作"><a href="#三-Stream流操作" class="headerlink" title="三.Stream流操作"></a>三.Stream流操作</h2><h3 id="1-简介"><a href="#1-简介" class="headerlink" title="1.简介"></a>1.简介</h3><p>数据渠道，用于操作数据源(集合、数组等)所生成的元素序列</p>
-<h3 id="2-操作步骤"><a href="#2-操作步骤" class="headerlink" title="2.操作步骤"></a>2.操作步骤</h3><h4 id="2-1-创建流Stream"><a href="#2-1-创建流Stream" class="headerlink" title="2.1. 创建流Stream"></a>2.1. 创建流Stream</h4><ol>
-<li>通过Collection系列集合提供的stream() 或 parallelStream()</li>
-<li>通过Arrays中的静态方法stream() 获得数组流</li>
-<li>通过Stream类中的静态方法of()</li>
-<li>创建无限流。<br><code>Stream&lt;Integer&gt; stream = Stream.iterate(0, (x) -&gt; x + 2);</code></li>
-</ol>
-<h4 id="2-2-中间操作"><a href="#2-2-中间操作" class="headerlink" title="2.2.中间操作"></a>2.2.中间操作</h4><blockquote>
-<p>返回值是Stream</p>
-</blockquote>
-<p><strong>注意</strong><br>在进行终止操作时中间操作会一次性全部处理 — “惰性求值”</p>
-<p><strong>筛选</strong></p>
-<ul>
-<li>filter — 接收Lambda，从流中清除某些元素</li>
-<li>limit — 截断流，使元素不能超过给定数量</li>
-<li>skip(n) — 跳过流中的前n个元素</li>
-<li>distinct — 筛选，通过流所生成元素的hashCode方法、equals方法去除重复元素</li>
-</ul>
-<p><strong>映射</strong></p>
-<ul>
-<li>map(Function f) — 接收Lambda，该函数会被应用到每个元素上。即该接口的传入参数即流中的数据，返回值即转换成的类型</li>
-<li>flatMap — 接收一个函数作为参数，将流中的每个值都换成另一个流，然后将所有流连续成一个流</li>
-</ul>
-<p><strong>排序</strong></p>
-<ul>
-<li>sorted() — 自然排序</li>
-<li>sorted(Comparator com) — 定制排序</li>
-</ul>
-<h4 id="2-3-终止操作"><a href="#2-3-终止操作" class="headerlink" title="2.3 终止操作"></a>2.3 终止操作</h4><blockquote>
-<p>返回值是非Stream</p>
-</blockquote>
-<p><strong>查找and匹配</strong></p>
-<hr>
-<p>返回值为boolean</p>
-<ul>
-<li>allMatch — 检查是否匹配所有元素</li>
-<li>anyMatch — 检查是否至少匹配一个元素</li>
-<li>noneMatch — 检查是否没有匹配所有元素</li>
-</ul>
-<hr>
-<ul>
-<li>findFirst — 返回第一个元素</li>
-<li><p>findAny — 返回当前流中的任意元素</p>
-</li>
-<li><p>count — 返回流中元素的总个数，返回值为Long</p>
-</li>
-<li><p>max — 返回流中最大值，返回值为Optional<t></t></p>
-</li>
-<li>min — 返回值中最小值 ，返回值同max</li>
-</ul>
-<p><strong>归约</strong></p>
-<ul>
-<li>reduce — 将流中元素反复结合</li>
-</ul>
-<p><strong>收集</strong></p>
-<ul>
-<li>collect(Collector c)。— 将流转换为其他形式 Collectors实用类提供了很多返回Collector的静态方法</li>
-</ul>
-<blockquote>
-<p>总得来说就是Stream的API使用</p>
-</blockquote>
-<h2 id="四-Optional容器类"><a href="#四-Optional容器类" class="headerlink" title="四.Optional容器类"></a>四.Optional容器类</h2><p><strong>常用方法</strong></p>
-<ul>
-<li>Optional.of(T t) : 创建一个Optional实例。该对象中t为null，会抛出异常</li>
-<li>Optional.empty() : 创建一个空的Optional实例</li>
-<li>Optional.ofNullable : 若t不为null，创建Optional实例，否则创建空实例</li>
-<li>isPresent() : 判断是否包含值</li>
-<li>orElse(T t), 如果对象包含值，返回该值。写替代对象，没有包含则返回替代对象。避免空指针异常</li>
-<li>orElseGet(Supplier s) : 如果调用对象包含值，返回该值，否则返回s获取的值</li>
-<li>map(Function f) : 如果有值对其处理，并返回处理后的Optional，否则返回Optional.empty()</li>
-<li>flatMap(Function f) : 与map类似，要求<strong>返回值必须是Optional</strong></li>
-<li>get方法，获得真实数据</li>
-</ul>
-<p><strong>个人常用方法</strong></p>
-<ul>
-<li>orElse(T t)，在Optional中没有对象时，拿这个默认对象</li>
-<li>orElseGet(Supplier s), 在为null时，用流式接口拿默认值 <strong>(与orElse相比，这里能写自己的逻辑，如在什么条件下，返回啥默认值)</strong></li>
-<li>map、flatMap、filter进行过滤<br><img src="\cttImages\image-20191219205134055.png" alt="image-20191219205134055" style="zoom:80%;"></li>
-</ul>
-<blockquote>
-<p><a href="https://blog.csdn.net/L_Sail/article/details/78868673" target="_blank" rel="noopener">Optional的正确使用姿势</a></p>
-<ul>
-<li>尽量不直接调用get、isPresent()方法，应该依赖于orElse、orElseGet、map这样的方法</li>
-</ul>
-</blockquote>
-<h2 id="四-其他特性"><a href="#四-其他特性" class="headerlink" title="四.其他特性"></a>四.其他特性</h2><h3 id="1-接口方法"><a href="#1-接口方法" class="headerlink" title="1.接口方法"></a>1.接口方法</h3><p>接口中可以定义默认方法(default 方法)，与public 静态方法</p>
-<p><strong>默认方法 “类优先”原则</strong>: 若一个接口中定义了一个默认方法，而另外一个父类或接口中又定义了一个同名方法时，选择父类中的方法</p>
-<blockquote>
-<p>两个接口都提供一个具有相同名称和参数列表的方法，必须覆盖该方法来解决冲突</p>
-</blockquote>
-<h3 id="2-新日期API"><a href="#2-新日期API" class="headerlink" title="2.新日期API"></a>2.新日期API</h3><p>LocalDate、LocalTime、LocalDateTime类的实例是不可变对象(线程安全对象)，分别使用ISO-8601日历系统的日期、时间、日期和时间</p>
-<h3 id="3-注解"><a href="#3-注解" class="headerlink" title="3.注解"></a>3.注解</h3><p>jdk8开始可以重复注解，且可以在类型前写注解</p>
-<p>在创建重复注解时，需加上@Repeatable</p>
-]]></content>
   </entry>
   <entry>
     <title>《设计模式之禅》 设计模式比较</title>

@@ -105,7 +105,7 @@
 <meta property="og:description" content="源码分析: JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线">
 <meta property="og:locale" content="zh-Hans">
 <meta property="og:image" content="http://yoursite.com/cttImages/1573998581653.png">
-<meta property="og:updated_time" content="2019-12-19T12:46:53.195Z">
+<meta property="og:updated_time" content="2020-03-07T08:41:15.919Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="源码分析 JDK Future模式分析">
 <meta name="twitter:description" content="源码分析: JDK Future模式分析[TOC] 一.基本概念基本方法接口  Executor接口:void execute(Runnable command)方法。开启一个线程执行任务，无返回值 ExecutorService接口:继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值 Callable接口可用于创建线">
@@ -437,7 +437,7 @@
                 
                   <span class="post-meta-item-text">Edited on</span>
                 
-                <time title="Updated at: 2019-12-19 20:46:53" itemprop="dateModified" datetime="2019-12-19T20:46:53+08:00">2019-12-19</time>
+                <time title="Updated at: 2020-03-07 16:41:15" itemprop="dateModified" datetime="2020-03-07T16:41:15+08:00">2020-03-07</time>
               
             
           </span>
@@ -483,6 +483,7 @@
 <li>ExecutorService接口:<br>继承自Executor接口，里面的submit方法，最终会开启一个线程执行任务，并返回Future对象，该对象中含有该线程的返回值</li>
 <li>Callable接口可用于创建线程，call方法会有返回值且可抛出异常</li>
 </ol>
+<a id="more"></a>
 <p><strong>基本示意图</strong><br><img src="\cttImages\1573998581653.png" alt="1573998581653"></p>
 <h2 id="二-源码分析"><a href="#二-源码分析" class="headerlink" title="二.源码分析"></a>二.源码分析</h2><p><u><strong>线程通过submit提交，该线程的返回值是怎么放到Future中的?</strong></u></p>
 <p><strong>1. submit源码 — 摘自ExecutorService的实现类AbstractExecutorService(子类有ThreadPoolExecutor)</strong><br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> Future&lt;?&gt; submit(Runnable task) &#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;Void&gt; ftask = newTaskFor(task, <span class="keyword">null</span>);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Runnable task, T result)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;T&gt; ftask = newTaskFor(task, result);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> &lt;T&gt; <span class="function">Future&lt;T&gt; <span class="title">submit</span><span class="params">(Callable&lt;T&gt; task)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (task == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException();</span><br><span class="line">        RunnableFuture&lt;T&gt; ftask = newTaskFor(task);</span><br><span class="line">        execute(ftask);</span><br><span class="line">        <span class="keyword">return</span> ftask;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
@@ -540,6 +541,10 @@
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2020/02/18/Unicode字符集/" rel="prev" title="一直疑惑的Unicode字符集">
+                一直疑惑的Unicode字符集 <i class="fa fa-chevron-right"></i>
+              </a>
             
           </div>
         </div>
@@ -724,7 +729,7 @@
     <footer id="footer" class="footer">
       <div class="footer-inner">
         <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-<div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+<div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
   <span class="with-love" id="animate">
     <i class="fa fa-user"></i>
   </span>
@@ -760,7 +765,7 @@
 
 <div class="theme-info">
   <div class="powered-by"></div>
-  <span class="post-count">博客全站共20k字</span>
+  <span class="post-count">博客全站共19.4k字</span>
 </div>
         
 

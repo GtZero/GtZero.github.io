@@ -104,17 +104,17 @@
 <meta property="og:site_name" content="RINGLING">
 <meta property="og:description" content="持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo研究mybatis，即  mybatis怎么读取配置文件创建SqlSessionFactory SqlSession运行过程   这里更多探究的是SqlSession运行过程">
 <meta property="og:locale" content="zh-Hans">
-<meta property="og:image" content="d:/InviAir/hexo/public/cttImages/image-20191226201723181.png">
-<meta property="og:image" content="d:/InviAir/hexo/public/cttImages/image-20191226191357174.png">
-<meta property="og:image" content="d:/InviAir/hexo/public/cttImages/image-20191226191322397.png">
-<meta property="og:image" content="d:/InviAir/hexo/public/cttImages/image-20191226191228811.png">
-<meta property="og:image" content="d:/InviAir/hexo/public/cttImages/image-20191226185717234.png">
-<meta property="og:image" content="d:/InviAir/hexo/public/cttImages/image-20191226185841103.png">
-<meta property="og:updated_time" content="2019-12-26T13:08:42.593Z">
+<meta property="og:image" content="http://yoursite.com/cttImages/image-20191226201723181.png">
+<meta property="og:image" content="http://yoursite.com/cttImages/image-20191226191357174.png">
+<meta property="og:image" content="http://yoursite.com/cttImages/image-20191226191322397.png">
+<meta property="og:image" content="http://yoursite.com/cttImages/image-20191226191228811.png">
+<meta property="og:image" content="http://yoursite.com/cttImages/image-20191226185717234.png">
+<meta property="og:image" content="http://yoursite.com/cttImages/image-20191226185841103.png">
+<meta property="og:updated_time" content="2019-12-26T13:18:12.320Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="源码分析 mybatis SQL执行流程及参数绑定过程">
 <meta name="twitter:description" content="持久层框架封装了jdbc的底层代码，我们需要提供的即sql、映射规则、pojo研究mybatis，即  mybatis怎么读取配置文件创建SqlSessionFactory SqlSession运行过程   这里更多探究的是SqlSession运行过程">
-<meta name="twitter:image" content="d:/InviAir/hexo/public/cttImages/image-20191226201723181.png">
+<meta name="twitter:image" content="http://yoursite.com/cttImages/image-20191226201723181.png">
 
 
 
@@ -442,7 +442,7 @@
                 
                   <span class="post-meta-item-text">Edited on</span>
                 
-                <time title="Updated at: 2019-12-26 21:08:42" itemprop="dateModified" datetime="2019-12-26T21:08:42+08:00">2019-12-26</time>
+                <time title="Updated at: 2019-12-26 21:18:12" itemprop="dateModified" datetime="2019-12-26T21:18:12+08:00">2019-12-26</time>
               
             
           </span>
@@ -558,12 +558,10 @@
 <p>当所有参数都判断之后,通过Collections.unmodifiableSortedMap(map)返回一个只读的Map容器赋值给names,同样存放着参数索引和    参数名的映射关系。此时MethodSignature初始化完毕</p>
 <blockquote>
 <p><strong>useActualParamName</strong>在<a href="https://www.cnblogs.com/yunqing/p/8065637.html" target="_blank" rel="noopener">3.4.1开始</a>可以配置true|false。<a href="https://blog.csdn.net/qq_33468239/article/details/72810058" target="_blank" rel="noopener">3.4.2之前为false。之后为true</a></p>
-<p>例子：<strong>这是在多个参数的时候，才会封装成map，return map。如果只有一个参数则直接返回该参数</strong><img src="D:\InviAir\hexo\public\cttImages\image-20191226201723181.png" alt="image-20191226201723181" style="zoom:67%;"><br><code>Employee findByIdAndNameWithGender(Integer id, @Param(&quot;myName&quot;)String name, String gender);</code></p>
+<p>例子：<strong>这是在多个参数的时候，才会封装成map，return map。如果只有一个参数则直接返回该参数</strong><img src="\cttImages\image-20191226201723181.png" alt="image-20191226201723181" style="zoom:67%;"><br><code>Employee findByIdAndNameWithGender(Integer id, @Param(&quot;myName&quot;)String name, String gender);</code></p>
 <ul>
-<li><p>当useActualParamName()为false时: <img src="D:\InviAir\hexo\public\cttImages\image-20191226191357174.png" alt="image-20191226191357174"><br>0 -&gt; “0”<br>1 -&gt; “myName”<br>2 -&gt; “2”  <img src="D:\InviAir\hexo\public\cttImages\image-20191226191322397.png" alt="image-20191226191322397"></p>
-</li>
-<li><p>当useActualParamName()为true时: <img src="D:\InviAir\hexo\public\cttImages\image-20191226191228811.png" alt="image-20191226191228811"><br>0 -&gt; “arg0”<br>1 -&gt; “myName”<br>2 -&gt;  “arg2”  <img src="D:\InviAir\hexo\public\cttImages\image-20191226185717234.png" alt="image-20191226185717234"> </p>
-</li>
+<li>当useActualParamName()为false时:<img src="\cttImages\image-20191226191357174.png"><br>0 -&gt; “0”<br>1 -&gt; “myName”<br>2 -&gt; “2”  <img src="\cttImages\image-20191226191322397.png"> </li>
+<li>当useActualParamName()为true时: <img src="\cttImages\image-20191226191228811.png"><br>0 -&gt; “arg0”<br>1 -&gt; “myName”<br>2 -&gt;  “arg2” <img src="\cttImages\image-20191226185717234.png"> </li>
 </ul>
 </blockquote>
 <h2 id="二-使用对应关系，绑定参数名与具体参数对象"><a href="#二-使用对应关系，绑定参数名与具体参数对象" class="headerlink" title="二.使用对应关系，绑定参数名与具体参数对象"></a>二.使用对应关系，绑定参数名与具体参数对象</h2><p>在之前的executeForMany中有这样的一个方法<br><code>Object param = this.method.convertArgsToSqlCommandParam(args);</code>具体代码如下</p>
@@ -573,7 +571,7 @@
 <li>根据GENERIC_NAME_PREFIX常量即”param”和当前的索引拼装成新的字符串,即param1,param2,…,paramN.然后和args数组里对应索引的值存储到Map容器param中</li>
 </ol>
 <blockquote>
-<p>上面举得例子得到的结果  <img src="D:\InviAir\hexo\public\cttImages\image-20191226185841103.png" alt="image-20191226185841103"> </p>
+<p>上面举得例子得到的结果  <img src="\cttImages\image-20191226185841103.png" alt="image-20191226185841103"> </p>
 </blockquote>
 <p>参考文章：<a href="https://blog.csdn.net/chenruicsdn/article/details/81370219，这篇博文有一定的错误" target="_blank" rel="noopener">https://blog.csdn.net/chenruicsdn/article/details/81370219，这篇博文有一定的错误</a></p>
 
@@ -803,7 +801,7 @@
     <footer id="footer" class="footer">
       <div class="footer-inner">
         <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
-<div class="copyright">&copy; <span itemprop="copyrightYear">2019</span>
+<div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
   <span class="with-love" id="animate">
     <i class="fa fa-user"></i>
   </span>
@@ -839,7 +837,7 @@
 
 <div class="theme-info">
   <div class="powered-by"></div>
-  <span class="post-count">博客全站共20k字</span>
+  <span class="post-count">博客全站共19.4k字</span>
 </div>
         
 
